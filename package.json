@@ -1,0 +1,17 @@
+{
+  "name": "phishguard-ai-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for real-time phishing detection using Google Gemini AI",
+  "keywords": [
+    "chrome-extension",
+    "phishing-detection",
+    "security",
+    "ai",
+    "cybersecurity"
+  ],
+  "license": "MIT",
+  "contributors": [
+    "Noga Porat <nogapo@bgu.ac.il>",
+    "Daniel Froydental <froydent@post.bgu.ac.il>"
+  ]
+}

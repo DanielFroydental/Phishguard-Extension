@@ -1,0 +1,18 @@
+# Chrome Extension - PhishGuard AI
+
+# API Keys and Secrets
+*.env*
+api-keys.txt
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Development
+*.log
+*.tmp
+*.zip

@@ -1,0 +1,87 @@
+<!--
+  PhishGuard AI Extension Popup Interface
+  Provides user interface for manual phishing scans, API key configuration,
+  scan history viewing, and extension settings management
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=400, initial-scale=1.0">
+    <title>PhishGuard AI</title>
+    <link rel="stylesheet" href="css/popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <img src="icons/icon32.png" alt="PhishGuard AI" id="logo-icon">
+                <h1>PhishGuard AI</h1>
+            </div>
+            <div class="status-indicator" id="status-indicator">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-text">Ready</span>
+            </div>
+        </header>
+
+        <main>
+            <!-- Scan Controls -->
+            <div class="section" id="scan-section">
+                <h3>Scan Current Page</h3>
+                <button id="scan-button" class="primary-button" disabled>
+                    <span class="button-icon">🔍</span>
+                    Analyze Page
+                </button>
+            </div>
+
+            <!-- Results Display -->
+            <div class="section" id="results-section" style="display: none;">
+                <h3>Analysis Results</h3>
+                <div class="result-card" id="result-card">
+                    <div class="result-header">
+                        <span class="verdict" id="verdict">Unknown</span>
+                        <span class="confidence" id="confidence">0%</span>
+                    </div>
+                    <div class="result-body">
+                        <div class="url-info">
+                            <strong>URL:</strong> <span id="analyzed-url">-</span>
+                        </div>
+                        <div class="reasoning">
+                            <strong>Analysis:</strong>
+                            <ul id="reasoning-list"></ul>
+                        </div>
+                        <div class="warning-indicator hidden" id="warning-indicator">
+                            <span class="icon">⚠️</span>
+                            <span>Low confidence - Exercise caution when proceeding</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loading-section" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p>Analyzing page with Gemini AI...</p>
+            </div>
+
+            <!-- Recent Scans -->
+            <div class="section" id="history-section">
+                <h3>Recent Scans</h3>
+                <div id="scan-history">
+                    <p class="empty-state">No recent scans</p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <div class="footer-links">
+                <a href="#" id="settings-link">Settings</a>
+                <a href="#" id="help-link">Help</a>
+                <a href="#" id="about-link">About</a>
+            </div>
+        </footer>
+    </div>
+
+    <script src="src/popup.js"></script>
+</body>
+</html>
