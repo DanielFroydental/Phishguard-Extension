@@ -257,11 +257,6 @@ class PhishGuardBackground {
                 } else {
                     await this.sendContentScriptMessage(tabId, 'showSafeIndicator', result);
                 }
-            } else if (scanSource === 'popup') {
-                // Only show high-confidence phishing warnings from popup scans
-                if (result.verdict.toLowerCase() === 'phishing' && result.confidence >= this.phishingConfidenceThreshold) {
-                    await this.sendContentScriptMessage(tabId, 'showPhishingWarning', result);
-                }
             }
 
             return result;
