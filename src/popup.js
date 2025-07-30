@@ -444,7 +444,7 @@ class PopupManager {
      * Attempts connection with multiple model types for compatibility.
      */
     async testApiKey(apiKey) {
-        const models = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
+        const models = ['gemini-2.5-flash-lite', 'gemini-1.5-pro', 'gemini-pro'];
         
         for (const model of models) {
             try {

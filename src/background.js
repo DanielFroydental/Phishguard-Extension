@@ -16,7 +16,7 @@
 // Configuration object for Gemini AI API integration
 const GEMINI_CONFIG = {
     models: {
-        flash: 'gemini-1.5-flash',      // Fast, cost-effective model for most analyses
+        flash: 'gemini-2.5-flash-lite',      // Fast, cost-effective model for most analyses
         pro: 'gemini-1.5-pro',          // Higher quality model for complex cases
         legacy: 'gemini-pro'             // Fallback model for compatibility
     },
