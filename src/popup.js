@@ -1,5 +1,14 @@
 /*
- * Popup Interface Manager - PhishGuard AI Extension
+ * Popup Interface Manager - PhishGu    constructor() {
+        this.apiKey = null;
+        this.isScanning = false;
+        this.scanHistory = [];
+        // Configurable thresholds for legitimacy score system
+        this.safeThreshold = 80;        // 80-100: Safe/Legitimate
+        this.cautionThreshold = 50;     // 50-79: Caution/Uncertain  
+        // 0-49: Danger/Phishing
+        this.init();
+    }ension
  * 
  * Manages the extension's popup interface for user interactions with the phishing detection system.
  * Handles manual scanning, API key configuration, scan history display, and settings management.
@@ -7,14 +16,29 @@
  * Key responsibilities:
  * - Provide intuitive interface for manual page scanning
  * - Manage API key validation and storage
- * - Display scan results with confidence levels and reasoning
+ * - Display scan results with legitimacy scores and reasoning
  * - Maintain scan history and user preferences
  * - Handle modal dialogs for settings, help, and about information
  * - Coordinate with background service worker for scan operations
  */
 
 /**
- * Main popup interface manager class that handles all user interactions.
+ * Main popup interface manager class that handles a                <div class="description">
+                    <p>PhishGuard AI is a Chrome extension that uses Google's Gemini AI to detect phishing websites in real-time, providing a configurable legitimacy score (0-100%) to help protect you from online scams and malicious websites.</p>
+                </div>
+
+                <div class="features">
+                    <h4>Key Features</h4>
+                    <ul>
+                        <li>🔍 Real-time phishing detection</li>
+                        <li>🤖 Powered by Google Gemini AI</li>
+                        <li>📊 Configurable legitimacy scoring (0-100%)</li>
+                        <li>⚙️ Customizable threshold settings</li>
+                        <li>⚡ Instant analysis results</li>
+                        <li>🛡️ Context menu scanning</li>
+                        <li>📋 Detailed threat reasoning</li>
+                    </ul>
+                </div>tions.
  * Manages UI state, API communications, and user settings for the extension popup.
  */
 class PopupManager {
@@ -26,7 +50,10 @@ class PopupManager {
         this.apiKey = null;
         this.isScanning = false;
         this.scanHistory = [];
-        this.confidenceThreshold = 70;
+        // Default thresholds for legitimacy score system (configurable)
+        this.safeThreshold = 80;        // 80-100: Safe/Legitimate
+        this.cautionThreshold = 50;     // 50-79: Caution/Uncertain  
+        // 0-49: Danger/Phishing
         this.init();
     }
 
@@ -43,20 +70,24 @@ class PopupManager {
 
     /**
      * Load stored user data from Chrome storage.
-     * Retrieves API key, scan history, and confidence threshold settings.
+     * Retrieves API key, scan history, and threshold settings.
      */
     async loadStoredData() {
         try {
-            const result = await chrome.storage.sync.get(['geminiApiKey', 'scanHistory', 'confidenceThreshold']);
+            const result = await chrome.storage.sync.get([
+                'geminiApiKey', 
+                'scanHistory', 
+                'safeThreshold', 
+                'cautionThreshold'
+            ]);
             this.apiKey = result.geminiApiKey || null;
-            this.confidenceThreshold = result.confidenceThreshold || 70;
             this.scanHistory = result.scanHistory || [];
+            this.safeThreshold = result.safeThreshold || 80;
+            this.cautionThreshold = result.cautionThreshold || 50;
         } catch (error) {
             console.error('Error loading stored data:', error);
         }
-    }
-
-    /**
+    }    /**
      * Set up event listeners for popup interface elements.
      * Attaches click handlers to buttons and navigation links.
      */
@@ -191,7 +222,7 @@ class PopupManager {
 
     /**
      * Display scan results in the popup interface.
-     * Updates UI with verdict, confidence level, reasoning, and visual indicators.
+     * Updates UI with verdict, legitimacy score, reasoning, and visual indicators.
      */
     displayResults(result) {
         // Get UI elements for result display
@@ -204,36 +235,53 @@ class PopupManager {
         const warningIndicator = document.getElementById('warning-indicator');
         const logoIcon = document.getElementById('logo-icon');
 
-        // Determine result classification for styling
-        let resultClass = result.verdict.toLowerCase();
+        const score = result.legitimacyScore;
         
-        // Handle uncertain legitimate results (low confidence)
-        if (result.verdict.toLowerCase() === 'legitimate' && result.confidence < this.confidenceThreshold) {
+        // Determine result classification based on legitimacy score
+        let resultClass, displayVerdict;
+        if (score >= this.safeThreshold) { // 80-100: Safe/Legitimate
+            resultClass = 'legitimate';
+            displayVerdict = 'Legitimate';
+        } else if (score >= this.cautionThreshold) { // 50-79: Caution/Uncertain
             resultClass = 'uncertain';
+            displayVerdict = 'Uncertain';
+        } else { // 0-49: Danger/Phishing
+            resultClass = 'phishing';
+            displayVerdict = 'Phishing';
         }
 
         // Update UI elements with scan results
-        verdict.textContent = result.verdict;
+        verdict.textContent = displayVerdict;
         verdict.className = `verdict ${resultClass}`;
         resultCard.className = `result-card ${resultClass}`;
         
+        // Display the legitimacy score as percentage with clear label
         const confidenceElement = confidence;
-        confidenceElement.textContent = `${Math.round(result.confidence)}%`;
+        confidenceElement.innerHTML = `
+            <div class="confidence-wrapper">
+                <span class="confidence-label">Legitimacy</span>
+                <span class="confidence-value">${Math.round(score)}%</span>
+            </div>
+        `;
 
-        if (result.confidence >= this.confidenceThreshold) {
-          confidenceElement.style.color =
-            result.verdict.toLowerCase() === "legitimate" ? "#4CAF50" : "#f44336";
+        // Color code based on score ranges
+        if (score >= this.safeThreshold) {
+            confidenceElement.style.color = "#059669"; // Green for safe
+        } else if (score >= this.cautionThreshold) {
+            confidenceElement.style.color = "#d97706"; // Orange for caution
         } else {
-          confidenceElement.style.color = "#ff9800";
+            confidenceElement.style.color = "#dc2626"; // Red for danger
         }
         
-        this.updateLogoBackground(logoIcon, result);
+        this.updateLogoBackground(logoIcon, { legitimacyScore: score, verdict: displayVerdict });
         
-        if (result.verdict.toLowerCase() === 'phishing' && result.confidence >= 80) {
-            this.showNotification('High-confidence phishing detected! Check the banner on the webpage for details.', 'error', 3000);
+        // Show notification for high-risk phishing
+        if (score < this.cautionThreshold) {
+            this.showNotification('Phishing website detected! Check the banner on the webpage for details.', 'error', 3000);
         }
         
-        if (result.verdict.toLowerCase() === 'legitimate' && result.confidence < this.confidenceThreshold) {
+        // Show warning indicator for uncertain results
+        if (score >= this.cautionThreshold && score < this.safeThreshold) {
             warningIndicator.classList.remove('hidden');
         } else {
             warningIndicator.classList.add('hidden');
@@ -253,14 +301,24 @@ class PopupManager {
 
     /**
      * Save scan result to history.
-     * Stores the URL, domain, verdict, confidence, and timestamp in the scan history.
+     * Stores the URL, domain, verdict (based on score), legitimacy score, and timestamp in the scan history.
      */
     async saveToHistory(result) {
+        const score = result.legitimacyScore;
+        let verdict;
+        if (score >= this.safeThreshold) {
+            verdict = 'Legitimate';
+        } else if (score >= this.cautionThreshold) {
+            verdict = 'Uncertain';
+        } else {
+            verdict = 'Phishing';
+        }
+
         const historyItem = {
             url: result.url,
             domain: new URL(result.url).hostname,
-            verdict: result.verdict,
-            confidence: result.confidence,
+            verdict: verdict,
+            legitimacyScore: score,
             timestamp: Date.now()
         };
 
@@ -346,25 +404,20 @@ class PopupManager {
     }
 
     /**
-     * Update logo background based on scan result.
+     * Update logo background based on legitimacy score.
      * Applies appropriate CSS classes to indicate scan status visually.
      */
     updateLogoBackground(logoIcon, result) {
         logoIcon.classList.remove('logo-safe', 'logo-warning', 'logo-danger', 'logo-neutral');
         
-        const verdict = result.verdict.toLowerCase();
-        const confidence = result.confidence;
+        const score = result.legitimacyScore;
         
-        if (verdict === 'phishing') {
+        if (score >= this.safeThreshold) { // 80-100: Safe/Legitimate
+            logoIcon.classList.add('logo-safe');
+        } else if (score >= this.cautionThreshold) { // 50-79: Caution/Uncertain
+            logoIcon.classList.add('logo-warning');
+        } else { // 0-49: Danger/Phishing
             logoIcon.classList.add('logo-danger');
-        } else if (verdict === 'legitimate') {
-            if (confidence >= this.confidenceThreshold) {
-                logoIcon.classList.add('logo-safe');
-            } else {
-                logoIcon.classList.add('logo-warning');
-            }
-        } else {
-            logoIcon.classList.add('logo-neutral');
         }
     }
 
@@ -498,15 +551,48 @@ class PopupManager {
                     <p class="help-text">Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></p>
                 </div>
 
-                <h4>Scanning Preferences</h4>
+                <h4>Legitimacy Score Thresholds</h4>
                 <div class="setting-item">
-                    <label for="confidence-threshold">Minimum confidence threshold: <span id="threshold-value">${this.confidenceThreshold}%</span></label>
-                    <div class="slider-container">
-                        <span class="slider-label">50%</span>
-                        <input type="range" id="confidence-threshold" min="50" max="90" value="${this.confidenceThreshold}" class="confidence-slider">
-                        <span class="slider-label">90%</span>
+                    <div class="threshold-controls">
+                        <div class="threshold-setting">
+                            <label for="safe-threshold">Safe Threshold: <span id="safe-threshold-value">${this.safeThreshold}%</span></label>
+                            <div class="slider-container">
+                                <span class="slider-label">70%</span>
+                                <input type="range" id="safe-threshold" min="70" max="95" value="${this.safeThreshold}" class="threshold-slider safe">
+                                <span class="slider-label">95%</span>
+                            </div>
+                            <p class="help-text">Sites scoring above this threshold are considered safe/legitimate</p>
+                        </div>
+                        
+                        <div class="threshold-setting">
+                            <label for="caution-threshold">Caution Threshold: <span id="caution-threshold-value">${this.cautionThreshold}%</span></label>
+                            <div class="slider-container">
+                                <span class="slider-label">30%</span>
+                                <input type="range" id="caution-threshold" min="30" max="70" value="${this.cautionThreshold}" class="threshold-slider caution">
+                                <span class="slider-label">70%</span>
+                            </div>
+                            <p class="help-text">Sites scoring above this threshold show caution warning</p>
+                        </div>
                     </div>
-                    <p class="help-text">Lower values = more alerts for uncertain sites. Higher values = fewer alerts, only high-confidence threats.</p>
+                    
+                    <div class="current-ranges">
+                        <div class="range-display safe">
+                            <span class="range-label" id="safe-range">${this.safeThreshold}-100%</span>
+                            <span class="range-desc">Safe/Legitimate ✅</span>
+                        </div>
+                        <div class="range-display caution">
+                            <span class="range-label" id="caution-range">${this.cautionThreshold}-${this.safeThreshold-1}%</span>
+                            <span class="range-desc">Uncertain/Caution ⚠️</span>
+                        </div>
+                        <div class="range-display danger">
+                            <span class="range-label" id="danger-range">0-${this.cautionThreshold-1}%</span>
+                            <span class="range-desc">Danger/Phishing ❗️</span>
+                        </div>
+                    </div>
+                    
+                    <div class="threshold-actions">
+                        <button id="reset-thresholds-btn" class="secondary-button">Reset to Defaults</button>
+                    </div>
                 </div>
 
                 <h4>Data & Privacy</h4>
@@ -522,24 +608,97 @@ class PopupManager {
             this.clearScanHistory();
         });
 
-        const thresholdSlider = document.getElementById('confidence-threshold');
-        const thresholdValue = document.getElementById('threshold-value');
-        
-        thresholdSlider.addEventListener('input', (e) => {
-            const value = e.target.value;
-            thresholdValue.textContent = `${value}%`;
+        // Threshold slider event listeners
+        const safeThresholdSlider = document.getElementById('safe-threshold');
+        const cautionThresholdSlider = document.getElementById('caution-threshold');
+        const safeThresholdValue = document.getElementById('safe-threshold-value');
+        const cautionThresholdValue = document.getElementById('caution-threshold-value');
+
+        // Update display values as sliders move
+        safeThresholdSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            safeThresholdValue.textContent = `${value}%`;
+            this.updateRangeDisplays(value, this.cautionThreshold);
         });
 
-        thresholdSlider.addEventListener('change', async (e) => {
+        cautionThresholdSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            cautionThresholdValue.textContent = `${value}%`;
+            this.updateRangeDisplays(this.safeThreshold, value);
+        });
+
+        // Save threshold changes
+        safeThresholdSlider.addEventListener('change', async (e) => {
             const newThreshold = parseInt(e.target.value);
-            try {
-                await chrome.storage.sync.set({ confidenceThreshold: newThreshold });
-                this.confidenceThreshold = newThreshold;
-                this.showNotification(`Confidence threshold updated to ${newThreshold}%`, 'success');
-            } catch (error) {
-                console.error('Error saving confidence threshold:', error);
-                this.showNotification('Failed to save confidence threshold', 'error', 4000);
+            // Ensure safe threshold is always higher than caution threshold
+            if (newThreshold <= this.cautionThreshold) {
+                e.target.value = this.cautionThreshold + 10;
+                newThreshold = this.cautionThreshold + 10;
+                safeThresholdValue.textContent = `${newThreshold}%`;
+                this.showNotification('Safe threshold must be higher than caution threshold', 'warning', 3000);
             }
+            try {
+                await chrome.storage.sync.set({ safeThreshold: newThreshold });
+                this.safeThreshold = newThreshold;
+                this.updateRangeDisplays(newThreshold, this.cautionThreshold);
+                this.showNotification(`Safe threshold updated to ${newThreshold}%`, 'success');
+            } catch (error) {
+                console.error('Error saving safe threshold:', error);
+                this.showNotification('Failed to save safe threshold', 'error', 4000);
+            }
+        });
+
+        cautionThresholdSlider.addEventListener('change', async (e) => {
+            const newThreshold = parseInt(e.target.value);
+            // Ensure caution threshold is always lower than safe threshold
+            if (newThreshold >= this.safeThreshold) {
+                e.target.value = this.safeThreshold - 10;
+                newThreshold = this.safeThreshold - 10;
+                cautionThresholdValue.textContent = `${newThreshold}%`;
+                this.showNotification('Caution threshold must be lower than safe threshold', 'warning', 3000);
+            }
+            try {
+                await chrome.storage.sync.set({ cautionThreshold: newThreshold });
+                this.cautionThreshold = newThreshold;
+                this.updateRangeDisplays(this.safeThreshold, newThreshold);
+                this.showNotification(`Caution threshold updated to ${newThreshold}%`, 'success');
+            } catch (error) {
+                console.error('Error saving caution threshold:', error);
+                this.showNotification('Failed to save caution threshold', 'error', 4000);
+            }
+        });
+
+        // Reset thresholds button
+        document.getElementById('reset-thresholds-btn').addEventListener('click', async () => {
+            try {
+                const defaultSafe = 80;
+                const defaultCaution = 50;
+                await chrome.storage.sync.set({ 
+                    safeThreshold: defaultSafe, 
+                    cautionThreshold: defaultCaution 
+                });
+                this.safeThreshold = defaultSafe;
+                this.cautionThreshold = defaultCaution;
+                
+                // Update UI
+                safeThresholdSlider.value = defaultSafe;
+                cautionThresholdSlider.value = defaultCaution;
+                safeThresholdValue.textContent = `${defaultSafe}%`;
+                cautionThresholdValue.textContent = `${defaultCaution}%`;
+                this.updateRangeDisplays(defaultSafe, defaultCaution);
+                
+                this.showNotification('Thresholds reset to defaults', 'success');
+            } catch (error) {
+                console.error('Error resetting thresholds:', error);
+                this.showNotification('Failed to reset thresholds', 'error', 4000);
+            }
+        });
+
+        // Threshold slider event listeners
+        this.setupThresholdSliders();
+
+        document.getElementById('reset-thresholds-btn').addEventListener('click', () => {
+            this.resetThresholds();
         });
 
         document.getElementById('save-api-key-btn').addEventListener('click', async () => {
@@ -586,6 +745,19 @@ class PopupManager {
     }
 
     /**
+     * Update the range displays in the settings modal
+     */
+    updateRangeDisplays(safeThreshold, cautionThreshold) {
+        const safeRange = document.getElementById('safe-range');
+        const cautionRange = document.getElementById('caution-range');
+        const dangerRange = document.getElementById('danger-range');
+        
+        if (safeRange) safeRange.textContent = `${safeThreshold}-100%`;
+        if (cautionRange) cautionRange.textContent = `${cautionThreshold}-${safeThreshold-1}%`;
+        if (dangerRange) dangerRange.textContent = `0-${cautionThreshold-1}%`;
+    }
+
+    /**
      * Display help modal with usage instructions and troubleshooting.
      * Provides comprehensive guide for using the extension effectively.
      */
@@ -597,19 +769,20 @@ class PopupManager {
                     <li><strong>API Setup:</strong> Get your free API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></li>
                     <li><strong>Manual Scan:</strong> Click "Analyze Page" to scan the current webpage</li>
                     <li><strong>Right-Click Scan:</strong> Right-click on any page and select "Scan page for phishing"</li>
-                    <li><strong>Adjust Threshold:</strong> Use the confidence slider in Settings to control sensitivity</li>
+                    <li><strong>Customize Thresholds:</strong> Adjust score thresholds in Settings to match your security preference</li>
+                    <li><strong>View Results:</strong> Check the legitimacy score and detailed reasoning</li>
                 </ol>
 
                 <h4>Understanding Results</h4>
                 <div class="result-explanation">
-                    <div class="verdict-example safe">✅ LEGITIMATE</div>
-                    <p>Website appears safe with high confidence</p>
+                    <div class="verdict-example safe">✅ LEGITIMATE (Safe threshold+)</div>
+                    <p>Website appears safe with high legitimacy score</p>
                     
-                    <div class="verdict-example suspicious">⚠️ SUSPICIOUS</div>
-                    <p>Website has some concerning elements - proceed with caution</p>
+                    <div class="verdict-example suspicious">❔ UNCERTAIN (Between thresholds)</div>
+                    <p>Website has mixed signals - proceed with caution</p>
                     
-                    <div class="verdict-example danger">🚨 PHISHING</div>
-                    <p>High likelihood of phishing - avoid entering personal information</p>
+                    <div class="verdict-example danger">❕ PHISHING (Below caution threshold)</div>
+                    <p>High risk of phishing - avoid entering personal information</p>
                 </div>
 
                 <h4>Tips for Safe Browsing</h4>
@@ -618,7 +791,8 @@ class PopupManager {
                     <li>Look for HTTPS (secure) connections</li>
                     <li>Be cautious of urgent or threatening messages</li>
                     <li>When in doubt, navigate to the official website directly</li>
-                    <li>Adjust confidence threshold: Lower = more alerts, Higher = fewer alerts</li>
+                    <li>Pay attention to the legitimacy score and reasoning provided</li>
+                    <li>Adjust thresholds in Settings: Lower = more alerts, Higher = fewer alerts</li>
                 </ul>
 
                 <h4>Troubleshooting</h4>
@@ -647,7 +821,7 @@ class PopupManager {
                 </div>
 
                 <div class="description">
-                    <p>PhishGuard AI is a Chrome extension that uses Google's Gemini AI to detect phishing websites in real-time, helping protect you from online scams and malicious websites.</p>
+                    <p>PhishGuard AI is a Chrome extension that uses Google's Gemini AI to detect phishing websites in real-time, providing a legitimacy score (0-100%) to help protect you from online scams and malicious websites.</p>
                 </div>
 
                 <div class="features">
@@ -655,9 +829,10 @@ class PopupManager {
                     <ul>
                         <li>🔍 Real-time phishing detection</li>
                         <li>🤖 Powered by Google Gemini AI</li>
+                        <li>📊 Legitimacy scoring (0-100%)</li>
                         <li>⚡ Instant analysis results</li>
                         <li>🛡️ Context menu scanning</li>
-                        <li>📊 Detailed threat analysis</li>
+                        <li>� Detailed threat reasoning</li>
                     </ul>
                 </div>
 
@@ -696,6 +871,120 @@ class PopupManager {
                 </div>
             </div>
         `);
+    }
+
+    /**
+     * Set up threshold slider event listeners and validation.
+     */
+    setupThresholdSliders() {
+        const safeSlider = document.getElementById('safe-threshold');
+        const cautionSlider = document.getElementById('caution-threshold');
+        const safeValue = document.getElementById('safe-threshold-value');
+        const cautionValue = document.getElementById('caution-threshold-value');
+
+        // Update display values on input
+        safeSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            safeValue.textContent = `${value}%`;
+            this.updateRangeDisplays(value, this.cautionThreshold);
+        });
+
+        cautionSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            cautionValue.textContent = `${value}%`;
+            this.updateRangeDisplays(this.safeThreshold, value);
+        });
+
+        // Save changes on release
+        safeSlider.addEventListener('change', async (e) => {
+            const newValue = parseInt(e.target.value);
+            if (newValue <= this.cautionThreshold) {
+                this.showNotification('Safe threshold must be higher than caution threshold', 'error', 4000);
+                e.target.value = this.safeThreshold;
+                safeValue.textContent = `${this.safeThreshold}%`;
+                return;
+            }
+            await this.saveThreshold('safeThreshold', newValue);
+        });
+
+        cautionSlider.addEventListener('change', async (e) => {
+            const newValue = parseInt(e.target.value);
+            if (newValue >= this.safeThreshold) {
+                this.showNotification('Caution threshold must be lower than safe threshold', 'error', 4000);
+                e.target.value = this.cautionThreshold;
+                cautionValue.textContent = `${this.cautionThreshold}%`;
+                return;
+            }
+            await this.saveThreshold('cautionThreshold', newValue);
+        });
+    }
+
+    /**
+     * Update the range displays based on current threshold values.
+     */
+    updateRangeDisplays(safeThreshold, cautionThreshold) {
+        const safeRange = document.getElementById('safe-range');
+        const cautionRange = document.getElementById('caution-range');
+        const dangerRange = document.getElementById('danger-range');
+
+        if (safeRange) safeRange.textContent = `${safeThreshold}-100%`;
+        if (cautionRange) cautionRange.textContent = `${cautionThreshold}-${safeThreshold-1}%`;
+        if (dangerRange) dangerRange.textContent = `0-${cautionThreshold-1}%`;
+    }
+
+    /**
+     * Save a threshold value to storage.
+     */
+    async saveThreshold(thresholdType, value) {
+        try {
+            const storageData = {};
+            storageData[thresholdType] = value;
+            await chrome.storage.sync.set(storageData);
+            
+            this[thresholdType] = value;
+            this.updateRangeDisplays(this.safeThreshold, this.cautionThreshold);
+            
+            const thresholdName = thresholdType === 'safeThreshold' ? 'Safe' : 'Caution';
+            this.showNotification(`${thresholdName} threshold updated to ${value}%`, 'success');
+        } catch (error) {
+            console.error('Error saving threshold:', error);
+            this.showNotification('Failed to save threshold', 'error', 4000);
+        }
+    }
+
+    /**
+     * Reset thresholds to default values.
+     */
+    async resetThresholds() {
+        try {
+            const defaultSafe = 80;
+            const defaultCaution = 50;
+            
+            await chrome.storage.sync.set({
+                safeThreshold: defaultSafe,
+                cautionThreshold: defaultCaution
+            });
+            
+            this.safeThreshold = defaultSafe;
+            this.cautionThreshold = defaultCaution;
+            
+            // Update UI elements
+            const safeSlider = document.getElementById('safe-threshold');
+            const cautionSlider = document.getElementById('caution-threshold');
+            const safeValue = document.getElementById('safe-threshold-value');
+            const cautionValue = document.getElementById('caution-threshold-value');
+            
+            if (safeSlider) safeSlider.value = defaultSafe;
+            if (cautionSlider) cautionSlider.value = defaultCaution;
+            if (safeValue) safeValue.textContent = `${defaultSafe}%`;
+            if (cautionValue) cautionValue.textContent = `${defaultCaution}%`;
+            
+            this.updateRangeDisplays(defaultSafe, defaultCaution);
+            this.showNotification('Thresholds reset to defaults', 'success');
+        } catch (error) {
+            console.error('Error resetting thresholds:', error);
+            this.showNotification('Failed to reset thresholds', 'error', 4000);
+        }
     }
 
     /**

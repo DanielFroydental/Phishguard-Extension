@@ -93,7 +93,7 @@ class PhishGuardContent {
                 
                 <div class="phishing-banner-details">
                     <div class="phishing-confidence">
-                        Phishing Risk Level: <strong>${Math.round(result.confidence)}%</strong>
+                        Legitimacy Score: <strong>${Math.round(result.legitimacyScore || 0)}%</strong>
                     </div>
                     <div class="phishing-reasons">
                         <strong>Warning signs detected:</strong>
@@ -168,7 +168,7 @@ class PhishGuardContent {
                 
                 <div class="phishing-banner-details">
                     <div class="phishing-confidence">
-                        Confidence in Legitimacy: <strong>${Math.round(result.confidence)}%</strong>
+                        Legitimacy Score: <strong>${Math.round(result.legitimacyScore || 0)}%</strong>
                     </div>
                     <div class="phishing-reasons">
                         <strong>Caution reasons:</strong>
@@ -245,7 +245,7 @@ class PhishGuardContent {
                     <div class="phishing-banner-title" style="order: 2 !important; text-align: left !important;">
                         <strong>Website appears legitimate</strong>
                         <div class="phishing-banner-subtitle">
-                            Scanned by PhishGuard AI <span class="confidence-pill">${Math.round(result.confidence)}% confidence</span>
+                            Scanned by PhishGuard AI <span class="confidence-pill">${Math.round(result.legitimacyScore || 0)}% legitimacy</span>
                         </div>
                         <div class="site-info" style="margin-top: 4px; font-size: 12px; opacity: 0.85; display: flex; align-items: center; gap: 5px;">
                             <span style="color: ${isSecure ? '#a7f3d0' : '#fcd34d'};">${isSecure ? '🔒 Secure' : '⚠️ Not Secure'}</span>
