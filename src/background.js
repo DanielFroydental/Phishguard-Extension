@@ -549,7 +549,7 @@ buildAnalysisPrompt(pageData) {
     Respond with ONLY this JSON:
     {
         "legitimacyScore": number,
-        "reasoning": ["Reason 1", "Reason 2", "Reason 3"]
+        "reasoning": ["Reason 1", "Reason 2", "Reason 3"] // max 3 reasons, concisely explain in simple terms
     }
 
     SCORING RUBRIC (do not reveal):
