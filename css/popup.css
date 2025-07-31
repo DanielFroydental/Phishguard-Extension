@@ -1,6 +1,8 @@
 .button-icon,
 .notification-icon,
 .warning-indicator .icon,
+.legitimate-indicator .icon,
+.phishing-indicator .icon,
 span[class*="icon"],
 *:contains("🔍"),
 *:contains("⚠️"),
@@ -54,6 +56,8 @@ span[class*="icon"],
     .button-icon,
     .notification-icon,
     .warning-indicator .icon,
+    .legitimate-indicator .icon,
+    .phishing-indicator .icon,
     .modal-close {
         font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
     }
@@ -798,12 +802,54 @@ main {
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+.legitimate-indicator {
+    background: linear-gradient(135deg, #059669, #047857);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.phishing-indicator {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 .warning-indicator .icon {
     font-size: 18px;
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
-.warning-indicator.hidden {
+.legitimate-indicator .icon {
+    font-size: 18px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.phishing-indicator .icon {
+    font-size: 18px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.warning-indicator.hidden,
+.legitimate-indicator.hidden,
+.phishing-indicator.hidden {
     display: none;
 }
 

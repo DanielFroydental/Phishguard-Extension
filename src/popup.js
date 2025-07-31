@@ -233,6 +233,8 @@ class PopupManager {
         const analyzedUrl = document.getElementById('analyzed-url');
         const reasoningList = document.getElementById('reasoning-list');
         const warningIndicator = document.getElementById('warning-indicator');
+        const legitimateIndicator = document.getElementById('legitimate-indicator');
+        const phishingIndicator = document.getElementById('phishing-indicator');
         const logoIcon = document.getElementById('logo-icon');
 
         const score = result.legitimacyScore;
@@ -280,11 +282,19 @@ class PopupManager {
             this.showNotification('Phishing website detected! Check the banner on the webpage for details.', 'error', 3000);
         }
         
-        // Show warning indicator for uncertain results
-        if (score >= this.cautionThreshold && score < this.safeThreshold) {
-            warningIndicator.classList.remove('hidden');
-        } else {
+        // Show appropriate indicator based on score ranges
+        if (score >= this.safeThreshold) {
+            legitimateIndicator.classList.remove('hidden');
             warningIndicator.classList.add('hidden');
+            phishingIndicator.classList.add('hidden');
+        } else if (score >= this.cautionThreshold) {
+            warningIndicator.classList.remove('hidden');
+            legitimateIndicator.classList.add('hidden');
+            phishingIndicator.classList.add('hidden');
+        } else { // 0-49: Danger/Phishing
+            phishingIndicator.classList.remove('hidden');
+            warningIndicator.classList.add('hidden');
+            legitimateIndicator.classList.add('hidden');
         }
         
         analyzedUrl.textContent = result.url;
