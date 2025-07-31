@@ -65,6 +65,20 @@ span[class*="icon"],
     padding: 0;
 }
 
+/* Global text overflow prevention */
+.container, .container * {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+/* Prevent text from overflowing container */
+p, span, div, h1, h2, h3, h4, h5, h6, li, ul, ol {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+}
+
 html {
     width: 400px !important;
     height: 600px !important;
@@ -214,6 +228,10 @@ main {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    min-height: 0;
 }
 
 .section {
@@ -224,6 +242,10 @@ main {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
     border: 1px solid rgba(0, 0, 0, 0.05);
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    overflow: hidden;
+    max-width: 100%;
 }
 
 .section:hover {
@@ -394,6 +416,9 @@ main {
     position: relative;
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
 }
 
 .result-card::before {
@@ -525,15 +550,24 @@ main {
     line-height: 1.6;
     position: relative;
     z-index: 1;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .url-info {
     margin-bottom: 16px;
     word-break: break-all;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
     background: rgba(255, 255, 255, 0.6);
     padding: 12px;
     border-radius: 8px;
     border: 1px solid rgba(0, 0, 0, 0.05);
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .url-info strong {
@@ -541,11 +575,24 @@ main {
     font-weight: 600;
 }
 
+#analyzed-url {
+    word-break: break-all;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    display: inline-block;
+    max-width: 100%;
+}
+
 .reasoning {
     background: rgba(255, 255, 255, 0.6);
     padding: 12px;
     border-radius: 8px;
     border: 1px solid rgba(0, 0, 0, 0.05);
+    max-width: 100%;
+    overflow: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .reasoning strong {
@@ -557,10 +604,29 @@ main {
     margin: 12px 0 0 16px;
 }
 
+#reasoning-list {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    padding-left: 0;
+    margin-left: 16px;
+}
+
+#reasoning-list li {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-width: calc(100% - 16px);
+}
+
 .reasoning li {
     margin-bottom: 6px;
     color: #4b5563;
     position: relative;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-width: 100%;
 }
 
 .reasoning li::marker {
@@ -670,6 +736,11 @@ main {
     color: #374151;
     flex: 1;
     margin-right: 12px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 .history-item .result {

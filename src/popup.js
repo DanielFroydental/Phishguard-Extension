@@ -778,10 +778,10 @@ class PopupManager {
                     <div class="verdict-example safe">✅ LEGITIMATE (Safe threshold+)</div>
                     <p>Website appears safe with high legitimacy score</p>
                     
-                    <div class="verdict-example suspicious">❔ UNCERTAIN (Between thresholds)</div>
+                    <div class="verdict-example suspicious">⚠️ UNCERTAIN (Between thresholds)</div>
                     <p>Website has mixed signals - proceed with caution</p>
                     
-                    <div class="verdict-example danger">❕ PHISHING (Below caution threshold)</div>
+                    <div class="verdict-example danger">❗️ PHISHING (Below caution threshold)</div>
                     <p>High risk of phishing - avoid entering personal information</p>
                 </div>
 
@@ -802,7 +802,8 @@ class PopupManager {
                 <p><strong>Need a fresh start?</strong> Clear scan history in Settings</p>
 
                 <h4>Contact Support</h4>
-                <p>Found a bug or have suggestions? <a href="mailto:support@phishguard.ai">Contact us</a></p>
+                <p>Found a bug or have suggestions? Contact us at:</p>
+                <p><a href="mailto:froydent@post.bgu.ac.il">froydent@post.bgu.ac.il</a> or <a href="mailto:nogopo@bgu.ac.il">nogopo@bgu.ac.il</a></p>
             </div>
         `);
     }
