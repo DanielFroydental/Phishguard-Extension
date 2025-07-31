@@ -1,14 +1,5 @@
 /*
- * Popup Interface Manager - PhishGu    constructor() {
-        this.apiKey = null;
-        this.isScanning = false;
-        this.scanHistory = [];
-        // Configurable thresholds for legitimacy score system
-        this.safeThreshold = 80;        // 80-100: Safe/Legitimate
-        this.cautionThreshold = 50;     // 50-79: Caution/Uncertain  
-        // 0-49: Danger/Phishing
-        this.init();
-    }ension
+ * Popup Interface Manager - PhishGuard AI Extension
  * 
  * Manages the extension's popup interface for user interactions with the phishing detection system.
  * Handles manual scanning, API key configuration, scan history display, and settings management.
@@ -20,26 +11,6 @@
  * - Maintain scan history and user preferences
  * - Handle modal dialogs for settings, help, and about information
  * - Coordinate with background service worker for scan operations
- */
-
-/**
- * Main popup interface manager class that handles a                <div class="description">
-                    <p>PhishGuard AI is a Chrome extension that uses Google's Gemini AI to detect phishing websites in real-time, providing a configurable legitimacy score (0-100%) to help protect you from online scams and malicious websites.</p>
-                </div>
-
-                <div class="features">
-                    <h4>Key Features</h4>
-                    <ul>
-                        <li>🔍 Real-time phishing detection</li>
-                        <li>🤖 Powered by Google Gemini AI</li>
-                        <li>📊 Configurable legitimacy scoring (0-100%)</li>
-                        <li>⚙️ Customizable threshold settings</li>
-                        <li>⚡ Instant analysis results</li>
-                        <li>🛡️ Context menu scanning</li>
-                        <li>📋 Detailed threat reasoning</li>
-                    </ul>
-                </div>tions.
- * Manages UI state, API communications, and user settings for the extension popup.
  */
 class PopupManager {
     /**
