@@ -12,6 +12,10 @@
  * - Provide visual feedback to users about website safety status
  */
 
+// Prevent multiple injections of the content script
+if (!window.phishGuardContentLoaded) {
+    window.phishGuardContentLoaded = true;
+
 /**
  * Content script class that handles all webpage interactions and warning displays.
  * Coordinates with background service worker to show appropriate security warnings.
@@ -565,3 +569,5 @@ if (document.readyState === 'loading') {
 } else {
     new PhishGuardContent();
 }
+
+} // End of phishGuardContentLoaded check

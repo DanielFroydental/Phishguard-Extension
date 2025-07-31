@@ -264,7 +264,7 @@ class PhishGuardBackground {
                     await this.sendContentScriptMessage(tabId, 'showSuspiciousWarning', {
                         ...result,
                         reasoning: [
-                            'Website appears legitimate but with low confidence - please proceed with caution.',
+                            'AI analysis indicates potential phishing risks - please proceed with caution.',
                             ...result.reasoning
                         ]
                     });
@@ -316,10 +316,19 @@ class PhishGuardBackground {
      */
     async ensureContentScriptInjected(tabId) {
         try {
-            await chrome.scripting.executeScript({
+            // Check if content script is already injected by testing for a specific global variable
+            const results = await chrome.scripting.executeScript({
                 target: { tabId: tabId },
-                files: ['src/content.js']
+                func: () => window.phishGuardContentLoaded
             });
+
+            // If content script is not loaded, inject it
+            if (!results || !results[0] || !results[0].result) {
+                await chrome.scripting.executeScript({
+                    target: { tabId: tabId },
+                    files: ['src/content.js']
+                });
+            }
         } catch (error) {
             console.error('Error injecting content script:', error);  
         }
