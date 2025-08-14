@@ -1,34 +1,19 @@
 /*
  * Content Script - PhishGuard AI Extension
- * 
  * Manages user-facing warnings and page interactions for the phishing detection system.
- * Injected into webpages to display phishing warnings, extract page content, and handle banner UI.
- * 
- * Key responsibilities:
- * - Display dynamic warning banners for phishing/suspicious/safe sites
- * - Extract detailed page content for AI analysis (text, forms, links, security indicators)
- * - Manage banner animations, auto-hiding, and user interactions
- * - Handle page navigation changes and banner state management
- * - Provide visual feedback to users about website safety status
  */
 
-// Prevent multiple injections of the content script
 if (!window.phishGuardContentLoaded) {
     window.phishGuardContentLoaded = true;
 
-/**
- * Content script class that handles all webpage interactions and warning displays.
- * Coordinates with background service worker to show appropriate security warnings.
- */
 class PhishGuardContent {
     constructor() {
-        this.currentBanner = null; // Currently displayed banner element
-        this.pageAnalyzed = false; // Flag to track if current page was analyzed
+        this.currentBanner = null;
+        this.pageAnalyzed = false;
         this.init();
     }
 
     init() {
-        // Listen for messages from background service worker
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             this.handleMessage(request, sender, sendResponse);
             return true;
@@ -36,10 +21,6 @@ class PhishGuardContent {
         this.observePageChanges();
     }
 
-    /**
-     * Handle messages from background service worker.
-     * Routes different action types to appropriate banner display methods.
-     */
     handleMessage(request, sender, sendResponse) {
         switch (request.action) {
             case 'showPhishingWarning':
@@ -63,26 +44,42 @@ class PhishGuardContent {
         }
     }
 
-    /**
-     * Display prominent phishing warning banner at top of page.
-     * Creates highly visible red banner with warning information and user actions.
-     */
-    showPhishingWarning(result) {
+    createBanner(id, className, innerHTML, autoHideDelay = 15000) {
         this.removeBanner();
 
         const banner = document.createElement('div');
-        banner.id = 'phishguard-warning';
-        banner.className = 'phishguard-banner warning';
+        banner.id = id;
+        banner.className = className;
         banner.setAttribute('dir', 'ltr');
         banner.style.cssText = 'position: fixed !important; top: 0 !important; bottom: auto !important; left: 0 !important; right: 0 !important; z-index: 2147483647 !important; direction: ltr !important; text-align: left !important; unicode-bidi: embed !important;';
-        banner.style.setProperty('position', 'fixed', 'important');
-        banner.style.setProperty('top', '0', 'important');
-        banner.style.setProperty('bottom', 'auto', 'important');
-        banner.style.setProperty('left', '0', 'important');
-        banner.style.setProperty('right', '0', 'important');
-        banner.style.setProperty('z-index', '2147483647', 'important');
-        
-        banner.innerHTML = `
+        banner.innerHTML = innerHTML;
+
+        document.body.appendChild(banner);
+        this.currentBanner = banner;
+
+        setTimeout(() => {
+            banner.classList.add('show');
+            banner.style.setProperty('position', 'fixed', 'important');
+            banner.style.setProperty('z-index', '2147483647', 'important');
+        }, 10);
+
+        if (autoHideDelay > 0) {
+            setTimeout(() => {
+                if (banner.parentNode && !banner.classList.contains('user-interacted')) {
+                    banner.classList.add('auto-hiding');
+                    setTimeout(() => {
+                        if (banner.parentNode) banner.remove();
+                    }, 500);
+                }
+            }, autoHideDelay);
+        }
+
+        banner.addEventListener('mouseenter', () => banner.classList.add('user-interacted'));
+        return banner;
+    }
+
+    showPhishingWarning(result) {
+        const innerHTML = `
             <div class="phishing-banner-content" dir="ltr" style="direction: ltr !important; text-align: left !important;">
                 <div class="phishing-banner-header" dir="ltr" style="direction: ltr !important; display: flex !important; flex-direction: row !important;">
                     <div class="phishing-banner-icon" style="order: 1 !important;">!</div>
@@ -115,48 +112,11 @@ class PhishGuardContent {
             </div>
         `;
 
-        document.body.appendChild(banner);
-        this.currentBanner = banner;
-
-        setTimeout(() => {
-            banner.classList.add('show');
-            banner.style.setProperty('position', 'fixed', 'important');
-            banner.style.setProperty('z-index', '2147483647', 'important');
-        }, 10);
-
-        // Auto-hide after 15 seconds
-        setTimeout(() => {
-            if (banner.parentNode && !banner.classList.contains('user-interacted')) {
-                banner.classList.add('auto-hiding');
-                setTimeout(() => {
-                    if (banner.parentNode) banner.remove();
-                }, 500);
-            }
-        }, 15000);
-
-        banner.addEventListener('mouseenter', () => banner.classList.add('user-interacted'));
+        this.createBanner('phishguard-warning', 'phishguard-banner warning', innerHTML, 15000);
     }
 
-    /**
-     * Display orange warning banner for suspicious but uncertain content.
-     * Used for legitimate sites with low confidence or sites with suspicious elements.
-     */
     showSuspiciousWarning(result) {
-        this.removeBanner();
-
-        const banner = document.createElement('div');
-        banner.id = 'phishguard-suspicious';
-        banner.className = 'phishguard-banner suspicious';
-        banner.setAttribute('dir', 'ltr');
-        banner.style.cssText = 'position: fixed !important; top: 0 !important; bottom: auto !important; left: 0 !important; right: 0 !important; z-index: 2147483647 !important; direction: ltr !important; text-align: left !important; unicode-bidi: embed !important;';
-        banner.style.setProperty('position', 'fixed', 'important');
-        banner.style.setProperty('top', '0', 'important');
-        banner.style.setProperty('bottom', 'auto', 'important');
-        banner.style.setProperty('left', '0', 'important');
-        banner.style.setProperty('right', '0', 'important');
-        banner.style.setProperty('z-index', '2147483647', 'important');
-        
-        banner.innerHTML = `
+        const innerHTML = `
             <div class="phishing-banner-content" dir="ltr" style="direction: ltr !important; text-align: left !important;">
                 <div class="phishing-banner-header" dir="ltr" style="direction: ltr !important; display: flex !important; flex-direction: row !important;">
                     <div class="phishing-banner-icon" style="order: 1 !important;">⚠</div>
@@ -166,9 +126,7 @@ class PhishGuardContent {
                             Exercise caution - this website appears legitimate but has some suspicious elements
                         </div>
                     </div>
-                    <button class="phishing-banner-close" style="order: 3 !important;" onclick="this.closest('.phishguard-banner').remove()">
-                        X
-                    </button>
+                    <button class="phishing-banner-close" style="order: 3 !important;" onclick="this.closest('.phishguard-banner').remove()">X</button>
                 </div>
                 
                 <div class="phishing-banner-details">
@@ -185,66 +143,20 @@ class PhishGuardContent {
                 </div>
                 
                 <div class="phishing-banner-actions" style="direction: ltr !important; display: flex !important; flex-direction: row !important;">
-                    <button class="phishing-action-btn warning" onclick="window.history.back()">
-                        ← Go Back
-                    </button>
-                    <button class="phishing-action-btn secondary" onclick="this.closest('.phishguard-banner').remove()">
-                        Continue with Caution
-                    </button>
+                    <button class="phishing-action-btn warning" onclick="window.history.back()">← Go Back</button>
+                    <button class="phishing-action-btn secondary" onclick="this.closest('.phishguard-banner').remove()">Continue with Caution</button>
                 </div>
             </div>
         `;
 
-        document.body.appendChild(banner);
-        this.currentBanner = banner;
-
-        // Animate in
-        setTimeout(() => {
-            banner.classList.add('show');
-            banner.style.setProperty('position', 'fixed', 'important');
-            banner.style.setProperty('z-index', '2147483647', 'important');
-        }, 10);
-
-        // Auto-hide after 10 seconds
-        setTimeout(() => {
-            if (banner.parentNode && !banner.classList.contains('user-interacted')) {
-                banner.classList.add('auto-hiding');
-                setTimeout(() => {
-                    if (banner.parentNode) {
-                        banner.remove();
-                    }
-                }, 500);
-            }
-        }, 10000);
-
-        banner.addEventListener('mouseenter', () => {
-            banner.classList.add('user-interacted');
-        });
+        this.createBanner('phishguard-suspicious', 'phishguard-banner suspicious', innerHTML, 10000);
     }
 
-    /**
-     * Display green confirmation banner for legitimate websites.
-     * Shows positive feedback when site is determined to be safe.
-     */
     showSafeIndicator(result) {
-        this.removeBanner();
-
-        const banner = document.createElement('div');
-        banner.id = 'phishguard-safe';
-        banner.className = 'phishguard-banner safe';
-        banner.setAttribute('dir', 'ltr');
-        banner.style.cssText = 'position: fixed !important; top: 0 !important; bottom: auto !important; left: 0 !important; right: 0 !important; z-index: 2147483647 !important; direction: ltr !important; text-align: left !important; unicode-bidi: embed !important;';
-        banner.style.setProperty('position', 'fixed', 'important');
-        banner.style.setProperty('top', '0', 'important');
-        banner.style.setProperty('bottom', 'auto', 'important');
-        banner.style.setProperty('left', '0', 'important');
-        banner.style.setProperty('right', '0', 'important');
-        banner.style.setProperty('z-index', '2147483647', 'important');
-        
         const domain = window.location.hostname;
         const isSecure = window.location.protocol === 'https:';
         
-        banner.innerHTML = `
+        const innerHTML = `
             <div class="phishing-banner-content safe-content" dir="ltr" style="direction: ltr !important; text-align: left !important;">
                 <div class="phishing-banner-header" dir="ltr" style="direction: ltr !important; display: flex !important; flex-direction: row !important;">
                     <div class="phishing-banner-icon" style="order: 1 !important;"></div>
@@ -260,17 +172,13 @@ class PhishGuardContent {
                             <span style="font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 250px; white-space: nowrap;">${domain}</span>
                         </div>
                     </div>
-                    <button class="phishing-banner-close" style="order: 3 !important;" id="safe-banner-close">
-                        X
-                    </button>
+                    <button class="phishing-banner-close" style="order: 3 !important;" id="safe-banner-close">X</button>
                 </div>
             </div>
         `;
 
-        document.body.appendChild(banner);
-        this.currentBanner = banner;
-
-        // Add click event listener for the close button
+        const banner = this.createBanner('phishguard-safe', 'phishguard-banner safe', innerHTML, 5000);
+        
         const closeButton = banner.querySelector('#safe-banner-close');
         closeButton.addEventListener('click', () => {
             banner.classList.add('auto-hiding');
@@ -280,25 +188,6 @@ class PhishGuardContent {
                 }
             }, 300);
         });
-
-        // Animate in
-        setTimeout(() => {
-            banner.classList.add('show');
-            banner.style.setProperty('position', 'fixed', 'important');
-            banner.style.setProperty('z-index', '2147483647', 'important');
-        }, 10);
-        
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            if (banner.parentNode && !banner.classList.contains('user-interacted')) {
-                banner.classList.add('auto-hiding');
-                setTimeout(() => {
-                    if (banner.parentNode) {
-                        banner.remove();
-                    }
-                }, 400);
-            }
-        }, 5000);
     }
 
     removeBanner() {
@@ -306,7 +195,6 @@ class PhishGuardContent {
             this.currentBanner.remove();
             this.currentBanner = null;
         }
-        // Remove any existing banners to prevent duplicates
         const existingWarning = document.getElementById('phishguard-warning');
         const existingSafe = document.getElementById('phishguard-safe');
         const existingSuspicious = document.getElementById('phishguard-suspicious');
@@ -315,11 +203,6 @@ class PhishGuardContent {
         if (existingSafe) existingSafe.remove();
         if (existingSuspicious) existingSuspicious.remove();
     }
-
-    /**
-     * Extract comprehensive page data for AI analysis.
-     * Gathers text content, metadata, forms, links, and security indicators.
-     */
     extractPageData() {
         try {
             const title = document.title || '';
@@ -389,9 +272,7 @@ class PhishGuardContent {
         }
     }
 
-    /**
-     * Count external links on the page.
-     */
+
     countExternalLinks() {
         return Array.from(document.querySelectorAll('a[href]'))
             .filter(a => {
@@ -404,10 +285,7 @@ class PhishGuardContent {
             }).length;
     }
 
-    /**
-     * Check if the page contains a login form.
-     * Looks for forms with password and email/username fields.
-    */
+
     hasLoginForm() {
         const forms = document.querySelectorAll('form');
         for (const form of forms) {
@@ -422,9 +300,7 @@ class PhishGuardContent {
         return false;
     }
 
-    /**
-     * Check for meta refresh tags and JavaScript redirects.
-     */
+
     checkForRedirects() {
         const metaRefresh = document.querySelector('meta[http-equiv="refresh"]');
         const jsRedirects = document.body ? 
@@ -437,10 +313,7 @@ class PhishGuardContent {
         };
     }
 
-    /**
-     * Analyze page content for common phishing indicators.
-     * Looks for urgency, scam phrases, threats, excessive capitalization, and spelling errors.
-     */
+
     analyzeContentFlags(bodyText, title) {
         const text = (bodyText + ' ' + title).toLowerCase();
         
@@ -470,10 +343,7 @@ class PhishGuardContent {
         };
     }
 
-    /**
-     * Detect common spelling errors in the page text.
-     * Uses a predefined list of common misspellings.
-     */
+
     detectSpellingErrors(text) {
         const commonMisspellings = [
             'amazom', 'gogle', 'microsooft', 'facbook',
@@ -483,10 +353,7 @@ class PhishGuardContent {
         return commonMisspellings.some(error => text.includes(error));
     }
 
-    /**
-     * Observe page changes (e.g., navigation, content updates).
-     * Resets banner state and sends URL change messages to background script.
-     */
+
     observePageChanges() {
         let lastUrl = location.href;
         
@@ -505,10 +372,7 @@ class PhishGuardContent {
         }).observe(document, { subtree: true, childList: true });
     }
 
-    /**
-     * Show a notification message to the user.
-     *  Displays a temporary message in the corner of the screen.
-     */
+
     showNotification(message, type = 'info') {
         const existingNotification = document.querySelector('.phishguard-notification');
         if (existingNotification) {

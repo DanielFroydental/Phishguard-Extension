@@ -1,38 +1,18 @@
 /*
  * Popup Interface Manager - PhishGuard AI Extension
- * 
  * Manages the extension's popup interface for user interactions with the phishing detection system.
- * Handles manual scanning, API key configuration, scan history display, and settings management.
- * 
- * Key responsibilities:
- * - Provide intuitive interface for manual page scanning
- * - Manage API key validation and storage
- * - Display scan results with legitimacy scores and reasoning
- * - Maintain scan history and user preferences
- * - Handle modal dialogs for settings, help, and about information
- * - Coordinate with background service worker for scan operations
  */
 class PopupManager {
-    /**
-     * Initialize the popup manager with default settings.
-     * Sets up instance variables for API key, scanning state, and user preferences.
-     */
     constructor() {
         this.apiKey = null;
         this.isScanning = false;
         this.scanHistory = [];
-        this.selectedModel = 'flashLite'; // Default model
-        // Default thresholds for legitimacy score system (configurable)
-        this.safeThreshold = 80;        // 80-100: Safe/Legitimate
-        this.cautionThreshold = 50;     // 50-79: Caution/Uncertain  
-        // 0-49: Danger/Phishing
+        this.selectedModel = 'flashLite';
+        this.safeThreshold = 80;
+        this.cautionThreshold = 50;
         this.init();
     }
 
-    /**
-     * Initialize the popup interface and load user data.
-     * Sets up event listeners, loads stored settings, and prepares the UI.
-     */
     async init() {
         await this.loadStoredData();
         this.setupEventListeners();
@@ -40,10 +20,6 @@ class PopupManager {
         this.updateHistoryUI();
     }
 
-    /**
-     * Load stored user data from Chrome storage.
-     * Retrieves API key, scan history, and threshold settings.
-     */
     async loadStoredData() {
         try {
             const result = await chrome.storage.sync.get([
@@ -61,10 +37,8 @@ class PopupManager {
         } catch (error) {
             console.error('Error loading stored data:', error);
         }
-    }    /**
-     * Set up event listeners for popup interface elements.
-     * Attaches click handlers to buttons and navigation links.
-     */
+    }
+
     setupEventListeners() {
         document.getElementById('scan-button').addEventListener('click', () => this.scanCurrentPage());
         
@@ -82,10 +56,7 @@ class PopupManager {
         });
     }
 
-    /**
-     * Save and validate user's Gemini API key.
-     * Performs validation, testing, and secure storage of the API key.
-     */
+
     async saveApiKey() {
         const apiKeyInput = document.getElementById('api-key');
         const apiKey = apiKeyInput.value.trim();
@@ -118,10 +89,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Update popup UI based on current API key status.
-     * Enables/disables scan button and updates status indicators.
-     */
+
     updateUI() {
         const scanButton = document.getElementById('scan-button');
         const statusText = document.getElementById('status-text');
@@ -140,10 +108,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Initiate phishing scan of the current active tab.
-     * Coordinates with background script to analyze page content using AI.
-     */
+
     async scanCurrentPage() {
         if (this.isScanning) return; // Prevent multiple simultaneous scans
 
@@ -194,10 +159,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Display scan results in the popup interface.
-     * Updates UI with verdict, legitimacy score, reasoning, and visual indicators.
-     */
+
     displayResults(result) {
         // Get UI elements for result display
         const resultsSection = document.getElementById('results-section');
@@ -299,10 +261,7 @@ class PopupManager {
         resultsSection.style.display = 'block';
     }
 
-    /**
-     * Save scan result to history.
-     * Stores the URL, domain, verdict (based on score), legitimacy score, and timestamp in the scan history.
-     */
+
     async saveToHistory(result) {
         const score = result.legitimacyScore;
         let verdict;
@@ -333,10 +292,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Update scan history display in the popup interface.
-     * Renders list of recent scans with domains and verdicts.
-     */
+
     updateHistoryUI() {
         const historyContainer = document.getElementById('scan-history');
         
@@ -383,11 +339,6 @@ class PopupManager {
             console.error('Error resetting toolbar icon:', error);
         }
     }
- 
-    /**
-     * Show loading indicator during scans.
-     * Displays a loading section and disables the scan button while processing.
-     */
     showLoading(show) {
         const loadingSection = document.getElementById('loading-section');
         const scanButton = document.getElementById('scan-button');
@@ -403,10 +354,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Update logo background based on legitimacy score.
-     * Applies appropriate CSS classes to indicate scan status visually.
-     */
+
     updateLogoBackground(logoIcon, result) {
         logoIcon.classList.remove('logo-safe', 'logo-warning', 'logo-danger', 'logo-neutral');
         
@@ -421,9 +369,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Display a notification message in the popup.
-     */
+
     showNotification(message, type = 'info', duration = 3000) {
         const existingNotification = document.querySelector('.popup-notification');
         if (existingNotification) {
@@ -472,10 +418,7 @@ class PopupManager {
         return icons[type] || icons['info'];
     }
 
-    /**
-     * Validate Gemini API key format.
-     * Checks key length, prefix, and character validity.
-     */
+
     validateApiKey(apiKey) {
         if (!apiKey || apiKey.length < 30) {
             return { valid: false, error: 'API key too short' };
@@ -492,9 +435,7 @@ class PopupManager {
         return { valid: true };
     }
 
-    /**
-     * Get user-friendly display name for a model key.
-     */
+
     getModelDisplayName(modelKey) {
         const displayNames = {
             'flashLite': 'Gemini 2.5 Flash Lite',
@@ -505,10 +446,7 @@ class PopupManager {
         return displayNames[modelKey] || modelKey;
     }
 
-    /**
-     * Test API key with a specific Gemini model.
-     * Used for validating model access when switching models.
-     */
+
     async testSpecificModel(modelKey, apiKey) {
         const modelMap = {
             'flashLite': 'gemini-2.5-flash-lite',
@@ -550,10 +488,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Test API key with Gemini service to verify it works.
-     * Attempts connection with multiple model types for compatibility.
-     */
+
     async testApiKey(apiKey) {
         const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'];
         
@@ -591,10 +526,7 @@ class PopupManager {
         };
     }
 
-    /**
-     * Display settings modal for API configuration and preferences.
-     * Creates modal dialog with API key input, confidence threshold slider, and data management.
-     */
+
     showSettings() {
         this.createModal('Settings', `
             <div class="settings-content">
@@ -869,9 +801,6 @@ class PopupManager {
         });
     }
 
-    /**
-     * Update the range displays in the settings modal
-     */
     updateRangeDisplays(safeThreshold, cautionThreshold) {
         const safeRange = document.getElementById('safe-range');
         const cautionRange = document.getElementById('caution-range');
@@ -882,10 +811,7 @@ class PopupManager {
         if (dangerRange) dangerRange.textContent = `0-${cautionThreshold-1}%`;
     }
 
-    /**
-     * Display help modal with usage instructions and troubleshooting.
-     * Provides comprehensive guide for using the extension effectively.
-     */
+
     showHelp() {
         this.createModal('Help & Support', `
             <div class="help-content">
@@ -928,15 +854,12 @@ class PopupManager {
 
                 <h4>Contact Support</h4>
                 <p>Found a bug or have suggestions? Contact us at:</p>
-                <p><a href="mailto:froydent@post.bgu.ac.il">froydent@post.bgu.ac.il</a> or <a href="mailto:nogopo@bgu.ac.il">nogopo@bgu.ac.il</a></p>
+                <p><a href="mailto:froydent@post.bgu.ac.il">froydent@post.bgu.ac.il</a> or <a href="mailto:nogapo@bgu.ac.il">nogapo@bgu.ac.il</a></p>
             </div>
         `);
     }
 
-    /**
-     * Display about modal with extension information and credits.
-     * Shows version, features, privacy policy, and acknowledgments.
-     */
+
     showAbout() {
         this.createModal('About PhishGuard AI', `
             <div class="about-content">
@@ -999,9 +922,7 @@ class PopupManager {
         `);
     }
 
-    /**
-     * Set up threshold slider event listeners and validation.
-     */
+
     setupThresholdSliders() {
         const safeSlider = document.getElementById('safe-threshold');
         const cautionSlider = document.getElementById('caution-threshold');
@@ -1045,22 +966,9 @@ class PopupManager {
         });
     }
 
-    /**
-     * Update the range displays based on current threshold values.
-     */
-    updateRangeDisplays(safeThreshold, cautionThreshold) {
-        const safeRange = document.getElementById('safe-range');
-        const cautionRange = document.getElementById('caution-range');
-        const dangerRange = document.getElementById('danger-range');
 
-        if (safeRange) safeRange.textContent = `${safeThreshold}-100%`;
-        if (cautionRange) cautionRange.textContent = `${cautionThreshold}-${safeThreshold-1}%`;
-        if (dangerRange) dangerRange.textContent = `0-${cautionThreshold-1}%`;
-    }
 
-    /**
-     * Save a threshold value to storage.
-     */
+
     async saveThreshold(thresholdType, value) {
         try {
             const storageData = {};
@@ -1078,9 +986,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Reset thresholds to default values.
-     */
+
     async resetThresholds() {
         try {
             const defaultSafe = 80;
@@ -1113,10 +1019,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Create and display modal dialog with specified content.
-     * Handles modal lifecycle, event listeners, and cleanup.
-     */
+
     createModal(title, content, onClose = null) {
         const existingModal = document.querySelector('.modal-overlay');
         if (existingModal) {
@@ -1153,10 +1056,7 @@ class PopupManager {
         });
     }
 
-    /**
-     * Clear scan history and update UI.
-     * Resets scan history in storage and refreshes the history display.
-     */
+
     async clearScanHistory() {
         try {
             const clearButton = document.getElementById('clear-history-btn');
