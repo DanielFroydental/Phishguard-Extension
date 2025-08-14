@@ -328,6 +328,23 @@
     display: inline-block !important;
 }
 
+/* Model information in banners */
+.model-used {
+    font-size: 11px !important;
+    opacity: 0.8 !important;
+    font-weight: 400 !important;
+    margin-left: 8px !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.model-used-safe {
+    font-size: 10px !important;
+    opacity: 0.75 !important;
+    font-weight: 400 !important;
+    margin-left: 6px !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
 .phishing-reasons strong {
     display: block !important;
     margin-bottom: 8px !important;

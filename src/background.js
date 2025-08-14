@@ -14,10 +14,16 @@
 // Configuration object for Gemini AI API integration
 const GEMINI_CONFIG = {
     models: {
-        flashLite: 'gemini-2.5-flash-lite',      // Fast, cost-effective model for real-time scanning
-        flash: 'gemini-2.5-flash',          // fallback model with higher quality analyses
-        pro: 'gemini-2.5-pro'            // highest quality model for complex cases
+        pro: 'gemini-2.5-pro',              // Highest quality, most expensive model
+        flash: 'gemini-2.5-flash',          // Balanced performance and cost
+        flashLite: 'gemini-2.5-flash-lite'  // Fast, cost-effective model
     },
+    modelInfo: {
+        'gemini-2.5-pro': { name: 'Gemini 2.5 Pro', cost: 'high', description: 'Highest quality for complex analysis' },
+        'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', cost: 'medium', description: 'Balanced performance and cost' },
+        'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash Lite', cost: 'low', description: 'Fast and cost-effective' }
+    },
+    fallbackOrder: ['pro', 'flash', 'flashLite'], // Most expensive to cheapest
     defaultModel: 'flashLite',               // Primary model to use for analyses
     apiSettings: {
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
@@ -43,7 +49,8 @@ class PhishGuardBackground {
         this.cautionThreshold = 50;     // 50-79: Caution/Uncertain  
         // 0-49: Danger/Phishing
         this.scannedTabs = new Map();
-        this.currentModel = GEMINI_CONFIG.models.flashLite;
+        this.selectedModel = GEMINI_CONFIG.defaultModel; // User's preferred model
+        this.currentModel = null; // Will be set based on selected model
         this.init();
     }
 
@@ -66,11 +73,14 @@ class PhishGuardBackground {
             const result = await chrome.storage.sync.get([
                 'geminiApiKey', 
                 'safeThreshold', 
-                'cautionThreshold'
+                'cautionThreshold',
+                'selectedModel'
             ]);
             this.geminiApiKey = result.geminiApiKey || null;
             this.safeThreshold = result.safeThreshold || 80;
             this.cautionThreshold = result.cautionThreshold || 50;
+            this.selectedModel = result.selectedModel || GEMINI_CONFIG.defaultModel;
+            this.currentModel = GEMINI_CONFIG.models[this.selectedModel];
         } catch (error) {
             console.error('Error loading settings:', error);
         }
@@ -196,6 +206,10 @@ class PhishGuardBackground {
             if (changes.cautionThreshold) {
                 this.cautionThreshold = changes.cautionThreshold.newValue;
             }
+            if (changes.selectedModel) {
+                this.selectedModel = changes.selectedModel.newValue;
+                this.currentModel = GEMINI_CONFIG.models[this.selectedModel];
+            }
         }
     }
 
@@ -232,6 +246,9 @@ class PhishGuardBackground {
     async scanPage(tabId, url, scanSource = 'popup') {
         try {
             await this.loadSettings();
+            
+            // Reset to user's selected model at start of scan
+            this.currentModel = GEMINI_CONFIG.models[this.selectedModel];
             
             if (!this.geminiApiKey) {
                 throw new Error('API key not configured');
@@ -525,15 +542,83 @@ class PhishGuardBackground {
 
         } catch (error) {
             console.error('Gemini analysis failed:', error);
-            if (this.currentModel === GEMINI_CONFIG.models.flashLite) {
-                this.currentModel = GEMINI_CONFIG.models.flash;
-                return this.analyzeWithGemini(pageData);
-            } else if (this.currentModel === GEMINI_CONFIG.models.flash) {
-                this.currentModel = GEMINI_CONFIG.models.legacy;
+            
+            // Try next model in fallback chain (expensive to cheap)
+            const nextModel = this.getNextFallbackModel();
+            if (nextModel) {
+                const currentModelName = this.getModelDisplayName(this.currentModel);
+                const nextModelName = this.getModelDisplayName(nextModel);
+                
+                // Notify user about fallback
+                this.showFallbackNotification(currentModelName, nextModelName);
+                
+                this.currentModel = nextModel;
                 return this.analyzeWithGemini(pageData);
             } else {
+                // Reset to user's selected model for next scan
+                this.currentModel = GEMINI_CONFIG.models[this.selectedModel];
                 throw new Error(`All Gemini models failed: ${error.message}`);
             }
+        }
+    }
+
+    /**
+     * Get the next model in the fallback chain (expensive to cheap).
+     * Returns null if no more fallback models available.
+     */
+    getNextFallbackModel() {
+        // Find current model in the fallback order
+        const currentModelKey = Object.keys(GEMINI_CONFIG.models).find(
+            key => GEMINI_CONFIG.models[key] === this.currentModel
+        );
+        
+        if (!currentModelKey) {
+            return null;
+        }
+        
+        const currentIndex = GEMINI_CONFIG.fallbackOrder.indexOf(currentModelKey);
+        const nextIndex = currentIndex + 1;
+        
+        if (nextIndex < GEMINI_CONFIG.fallbackOrder.length) {
+            const nextModelKey = GEMINI_CONFIG.fallbackOrder[nextIndex];
+            return GEMINI_CONFIG.models[nextModelKey];
+        }
+        
+        return null;
+    }
+
+    /**
+     * Get user-friendly display name for a model.
+     */
+    getModelDisplayName(modelValue) {
+        const displayNames = {
+            'gemini-2.5-pro': 'Gemini 2.5 Pro',
+            'gemini-2.5-flash': 'Gemini 2.5 Flash',
+            'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite'
+        };
+        
+        return displayNames[modelValue] || modelValue;
+    }
+
+    /**
+     * Show notification to user about model fallback.
+     */
+    async showFallbackNotification(currentModelName, nextModelName) {
+        try {
+            // Get current active tab
+            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tabs.length > 0) {
+                const tabId = tabs[0].id;
+                
+                // Send notification to content script
+                await chrome.tabs.sendMessage(tabId, {
+                    action: 'showNotification',
+                    message: `${currentModelName} failed. Switching to ${nextModelName}...`,
+                    type: 'warning'
+                });
+            }
+        } catch (error) {
+            console.warn('Failed to show fallback notification:', error);
         }
     }
 
@@ -599,7 +684,9 @@ buildAnalysisPrompt(pageData) {
                 legitimacyScore,
                 reasoning: Array.isArray(parsed.reasoning) ? parsed.reasoning : ['Analysis completed'],
                 url: url,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                modelUsed: this.currentModel,
+                modelDisplayName: this.getModelDisplayName(this.currentModel)
             };
         } catch (error) {
             console.error('Error parsing Gemini response:', error);
@@ -629,7 +716,9 @@ buildAnalysisPrompt(pageData) {
             reasoning,
             url,
             timestamp: Date.now(),
-            fallback: true
+            fallback: true,
+            modelUsed: this.currentModel,
+            modelDisplayName: this.getModelDisplayName(this.currentModel)
         };
     }
 

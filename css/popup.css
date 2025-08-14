@@ -579,6 +579,30 @@ main {
     font-weight: 600;
 }
 
+/* Model information display */
+.model-info {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.model-info strong {
+    color: #4b5563;
+    font-weight: 500;
+}
+
+.model-name {
+    color: #6366f1;
+    font-weight: 600;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 11px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
 #analyzed-url {
     word-break: break-all;
     word-wrap: break-word;
@@ -1146,6 +1170,71 @@ footer {
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
+/* Model Selection Dropdown Styles */
+.setting-item select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    background: #f9fafb;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url('data:image/svg+xml,<svg width="12" height="8" viewBox="0 0 12 8" xmlns="http://www.w3.org/2000/svg"><path d="M6 8L0 0h12L6 8z" fill="%236b7280"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+}
+
+.setting-item select:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    transform: translateY(-1px);
+    background-image: url('data:image/svg+xml,<svg width="12" height="8" viewBox="0 0 12 8" xmlns="http://www.w3.org/2000/svg"><path d="M6 8L0 0h12L6 8z" fill="%236366f1"/></svg>');
+}
+
+.setting-item select:hover {
+    border-color: #d1d5db;
+    background: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.setting-item select option {
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+    background: white;
+    border: none;
+}
+
+.setting-item select option:hover,
+.setting-item select option:focus {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    color: #6366f1;
+}
+
+/* Model selection specific styling */
+#model-select {
+    background-image: url('data:image/svg+xml,<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><g fill="%236b7280"><path d="M8 12L2 6h12L8 12z"/><circle cx="4" cy="4" r="1.5" opacity="0.6"/><circle cx="8" cy="4" r="1.5" opacity="0.8"/><circle cx="12" cy="4" r="1.5"/></g></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+#model-select:focus {
+    background-image: url('data:image/svg+xml,<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><g fill="%236366f1"><path d="M8 12L2 6h12L8 12z"/><circle cx="4" cy="4" r="1.5" opacity="0.6"/><circle cx="8" cy="4" r="1.5" opacity="0.8"/><circle cx="12" cy="4" r="1.5"/></g></svg>');
+}
+
 .api-status {
     margin-top: 8px;
     font-size: 13px;
@@ -1697,6 +1786,20 @@ footer {
     .input-group .primary-button {
         width: 100%;
     }
+    
+    /* Model selection responsive styles */
+    .setting-item select {
+        padding: 14px 16px;
+        font-size: 16px; /* Prevents zoom on iOS */
+        background-size: 14px;
+        background-position: right 14px center;
+    }
+    
+    #model-select {
+        background-size: 18px;
+        background-position: right 14px center;
+        padding-right: 44px;
+    }
 }
 
 @media (prefers-contrast: high) {
@@ -1709,8 +1812,15 @@ footer {
     }
     
     .input-group input,
-    .input-group button {
+    .input-group button,
+    .setting-item select {
         border: 2px solid #000;
+    }
+    
+    .setting-item select:focus {
+        border: 3px solid #000;
+        background: #fff;
+        color: #000;
     }
 }
 

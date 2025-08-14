@@ -21,6 +21,7 @@ class PopupManager {
         this.apiKey = null;
         this.isScanning = false;
         this.scanHistory = [];
+        this.selectedModel = 'flashLite'; // Default model
         // Default thresholds for legitimacy score system (configurable)
         this.safeThreshold = 80;        // 80-100: Safe/Legitimate
         this.cautionThreshold = 50;     // 50-79: Caution/Uncertain  
@@ -49,12 +50,14 @@ class PopupManager {
                 'geminiApiKey', 
                 'scanHistory', 
                 'safeThreshold', 
-                'cautionThreshold'
+                'cautionThreshold',
+                'selectedModel'
             ]);
             this.apiKey = result.geminiApiKey || null;
             this.scanHistory = result.scanHistory || [];
             this.safeThreshold = result.safeThreshold || 80;
             this.cautionThreshold = result.cautionThreshold || 50;
+            this.selectedModel = result.selectedModel || 'flashLite';
         } catch (error) {
             console.error('Error loading stored data:', error);
         }
@@ -270,6 +273,22 @@ class PopupManager {
         
         analyzedUrl.textContent = result.url;
         
+        // Add model information if available
+        const urlInfo = document.querySelector('.url-info');
+        let modelInfo = urlInfo.querySelector('.model-info');
+        if (!modelInfo) {
+            modelInfo = document.createElement('div');
+            modelInfo.className = 'model-info';
+            urlInfo.appendChild(modelInfo);
+        }
+        
+        if (result.modelDisplayName) {
+            modelInfo.innerHTML = `<strong>Analyzed by:</strong> <span class="model-name">${result.modelDisplayName}</span>`;
+            modelInfo.style.display = 'block';
+        } else {
+            modelInfo.style.display = 'none';
+        }
+        
         reasoningList.innerHTML = '';
         result.reasoning.forEach(reason => {
             const li = document.createElement('li');
@@ -474,11 +493,69 @@ class PopupManager {
     }
 
     /**
+     * Get user-friendly display name for a model key.
+     */
+    getModelDisplayName(modelKey) {
+        const displayNames = {
+            'flashLite': 'Gemini 2.5 Flash Lite',
+            'flash': 'Gemini 2.5 Flash',
+            'pro': 'Gemini 2.5 Pro'
+        };
+        
+        return displayNames[modelKey] || modelKey;
+    }
+
+    /**
+     * Test API key with a specific Gemini model.
+     * Used for validating model access when switching models.
+     */
+    async testSpecificModel(modelKey, apiKey) {
+        const modelMap = {
+            'flashLite': 'gemini-2.5-flash-lite',
+            'flash': 'gemini-2.5-flash', 
+            'pro': 'gemini-2.5-pro'
+        };
+        
+        const modelName = modelMap[modelKey];
+        if (!modelName) {
+            return { valid: false, error: 'Unknown model type' };
+        }
+        
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: 'test' }] }],
+                    generationConfig: { maxOutputTokens: 10 }
+                })
+            });
+
+            if (response.ok) {
+                return { valid: true };
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
+                
+                if (response.status === 403) {
+                    return { valid: false, error: 'API key does not have access to this model.' };
+                } else if (response.status === 404) {
+                    return { valid: false, error: 'Model not found or not available.' };
+                } else {
+                    return { valid: false, error: errorMessage };
+                }
+            }
+        } catch (error) {
+            return { valid: false, error: `Network error: ${error.message}` };
+        }
+    }
+
+    /**
      * Test API key with Gemini service to verify it works.
      * Attempts connection with multiple model types for compatibility.
      */
     async testApiKey(apiKey) {
-        const models = ['gemini-2.5-flash-lite', 'gemini-1.5-pro', 'gemini-pro'];
+        const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'];
         
         for (const model of models) {
             try {
@@ -530,6 +607,16 @@ class PopupManager {
                     </div>
                     <div id="api-status" class="api-status">${this.apiKey ? '<span class="status-success">✓ API key configured</span>' : '<span class="status-error">⚠ API key not configured</span>'}</div>
                     <p class="help-text">Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></p>
+                </div>
+                
+                <div class="setting-item">
+                    <label for="model-select">AI Model:</label>
+                    <select id="model-select">
+                        <option value="flashLite">Gemini 2.5 Flash Lite (Fast & Cost-effective)</option>
+                        <option value="flash">Gemini 2.5 Flash (Balanced Performance)</option>
+                        <option value="pro">Gemini 2.5 Pro (Highest Quality)</option>
+                    </select>
+                    <p class="help-text">Choose your preferred AI model. Higher quality models provide better analysis but cost more.</p>
                 </div>
 
                 <h4>Legitimacy Score Thresholds</h4>
@@ -675,6 +762,9 @@ class PopupManager {
             }
         });
 
+        // Set current model selection
+        document.getElementById('model-select').value = this.selectedModel;
+
         // Threshold slider event listeners
         this.setupThresholdSliders();
 
@@ -721,6 +811,60 @@ class PopupManager {
         document.getElementById('modal-api-key').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 document.getElementById('save-api-key-btn').click();
+            }
+        });
+
+        // Model selection event listener with validation
+        document.getElementById('model-select').addEventListener('change', async (e) => {
+            const selectedModel = e.target.value;
+            const previousModel = this.selectedModel;
+            
+            // Don't test if selecting the same model
+            if (selectedModel === previousModel) {
+                return;
+            }
+            
+            try {
+                // First check if we have an API key
+                if (!this.apiKey) {
+                    this.showNotification('Please configure your API key first', 'error', 4000);
+                    e.target.value = previousModel; // Revert dropdown
+                    return;
+                }
+                
+                // Show testing notification
+                this.showNotification('Testing model access...', 'info', 2000);
+                
+                // Test the selected model
+                const testResult = await this.testSpecificModel(selectedModel, this.apiKey);
+                
+                if (testResult.valid) {
+                    // Model works, save the selection
+                    await chrome.storage.sync.set({ selectedModel: selectedModel });
+                    this.selectedModel = selectedModel;
+                    this.showNotification(`Successfully switched to ${this.getModelDisplayName(selectedModel)}!`, 'success');
+                } else {
+                    // Model failed, revert to flash-lite
+                    const fallbackModel = 'flashLite';
+                    e.target.value = fallbackModel; // Revert dropdown
+                    
+                    // Save fallback model
+                    await chrome.storage.sync.set({ selectedModel: fallbackModel });
+                    this.selectedModel = fallbackModel;
+                    
+                    // Show informative error
+                    this.showNotification(
+                        `Access denied to ${this.getModelDisplayName(selectedModel)}. Reverted to Flash Lite. ${testResult.error || 'Your API key may not have access to this model.'}`,
+                        'error',
+                        6000
+                    );
+                }
+            } catch (error) {
+                console.error('Error testing model selection:', error);
+                
+                // Revert to previous model on any error
+                e.target.value = previousModel;
+                this.showNotification('Failed to test model access. Selection reverted.', 'error', 4000);
             }
         });
     }
