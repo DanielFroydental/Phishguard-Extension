@@ -16,8 +16,19 @@ class PopupManager {
     async init() {
         await this.loadStoredData();
         this.setupEventListeners();
+        this.setupMessageListener();
         this.updateUI();
         this.updateHistoryUI();
+    }
+
+    setupMessageListener() {
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request.action === 'showPopupNotification') {
+                this.showNotification(request.message, request.type, 4000);
+                sendResponse({ success: true });
+            }
+            return true;
+        });
     }
 
     async loadStoredData() {

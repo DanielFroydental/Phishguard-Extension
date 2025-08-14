@@ -386,7 +386,7 @@ class PhishGuardContent {
             top: 20px !important;
             right: 20px !important;
             z-index: 2147483647 !important;
-            background: ${type === 'error' ? '#f44336' : '#4CAF50'} !important;
+            background: ${type === 'error' ? '#f44336' : type === 'warning' ? '#ff9800' : '#4CAF50'} !important;
             color: white !important;
             padding: 12px 16px !important;
             border-radius: 8px !important;
@@ -394,16 +394,19 @@ class PhishGuardContent {
             font-size: 14px !important;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
             max-width: 300px !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            white-space: normal !important;
             transform: translateX(100%) !important;
             transition: transform 0.3s ease-out !important;
         `;
         
         notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 16px;">${type === 'error' ? '!' : 'ℹ'}</span>
-                <span>${message}</span>
+            <div style="display: flex; align-items: flex-start; gap: 8px; word-wrap: break-word; overflow-wrap: break-word;">
+                <span style="font-size: 16px; flex-shrink: 0;">${type === 'error' ? '!' : type === 'warning' ? '⚠' : 'ℹ'}</span>
+                <span style="flex: 1; word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">${message}</span>
                 <button onclick="this.closest('.phishguard-notification').remove()" 
-                        style="margin-left: auto; background: none; border: none; color: white; cursor: pointer; font-size: 18px; padding: 0;">✕</button>
+                        style="flex-shrink: 0; background: none; border: none; color: white; cursor: pointer; font-size: 18px; padding: 0; margin-left: 4px;">✕</button>
             </div>
         `;
 

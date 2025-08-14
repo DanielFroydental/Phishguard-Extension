@@ -193,7 +193,7 @@ class PhishGuardBackground {
 
             const pageData = await this.getPageContent(tabId);
             pageData.isDomainSuspicious = this.isSuspiciousDomain(url);
-            const result = await this.analyzeWithGemini(pageData);
+            const result = await this.analyzeWithGemini(pageData, scanSource);
             
             this.scannedTabs.set(tabId, result);
             this.updateBadge(tabId, result);
@@ -424,7 +424,7 @@ class PhishGuardBackground {
     }
 
 
-    async analyzeWithGemini(pageData) {
+    async analyzeWithGemini(pageData, scanSource = 'popup') {
         const prompt = this.buildAnalysisPrompt(pageData);
         
         try {
@@ -465,10 +465,10 @@ class PhishGuardBackground {
                 const nextModelName = this.getModelDisplayName(nextModel);
                 
                 // Notify user about fallback
-                this.showFallbackNotification(currentModelName, nextModelName);
+                this.showFallbackNotification(currentModelName, nextModelName, scanSource);
                 
                 this.currentModel = nextModel;
-                return this.analyzeWithGemini(pageData);
+                return this.analyzeWithGemini(pageData, scanSource);
             } else {
                 // Reset to user's selected model for next scan
                 this.currentModel = GEMINI_CONFIG.models[this.selectedModel];
@@ -511,19 +511,39 @@ class PhishGuardBackground {
     }
 
 
-    async showFallbackNotification(currentModelName, nextModelName) {
+    async showFallbackNotification(currentModelName, nextModelName, scanSource = 'popup') {
         try {
-            // Get current active tab
-            const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-            if (tabs.length > 0) {
-                const tabId = tabs[0].id;
-                
-                // Send notification to content script
-                await chrome.tabs.sendMessage(tabId, {
-                    action: 'showNotification',
-                    message: `${currentModelName} failed. Switching to ${nextModelName}...`,
-                    type: 'warning'
-                });
+            const message = `${currentModelName} failed. Switching to ${nextModelName}...`;
+            
+            if (scanSource === 'popup') {
+                // Send to popup via runtime message
+                try {
+                    await chrome.runtime.sendMessage({
+                        action: 'showPopupNotification',
+                        message: message,
+                        type: 'warning'
+                    });
+                } catch (error) {
+                    // Popup might be closed, fallback to content script
+                    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                    if (tabs.length > 0) {
+                        await chrome.tabs.sendMessage(tabs[0].id, {
+                            action: 'showNotification',
+                            message: message,
+                            type: 'warning'
+                        });
+                    }
+                }
+            } else {
+                // Send to content script for context menu scans
+                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (tabs.length > 0) {
+                    await chrome.tabs.sendMessage(tabs[0].id, {
+                        action: 'showNotification',
+                        message: message,
+                        type: 'warning'
+                    });
+                }
             }
         } catch (error) {
             console.warn('Failed to show fallback notification:', error);
