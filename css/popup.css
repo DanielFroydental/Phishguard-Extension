@@ -63,6 +63,7 @@ span[class*="icon"],
     }
 }
 
+/* Global reset and base styles */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -86,6 +87,7 @@ html {
     height: 600px !important;
 }
 
+/* Popup body styling with gradient background */
 body {
     width: 400px !important;
     height: 600px !important;
@@ -112,6 +114,7 @@ body {
     flex-direction: column;
 }
 
+/* Header with gradient background and logo */
 header {
     background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
     color: white;
@@ -349,6 +352,7 @@ main {
     margin-bottom: 0;
 }
 
+/* Main scan button with gradient and hover effects */
 .primary-button {
     width: 100%;
     padding: 16px 24px;
@@ -410,6 +414,7 @@ main {
     filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
 }
 
+/* Scan result card with color-coded border based on legitimacy score */
 .result-card {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 12px;

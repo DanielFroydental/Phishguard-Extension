@@ -4,6 +4,7 @@
  * including API communication, scan management, and user data storage.
  */
 
+// Configuration for different Gemini AI models with fallback hierarchy
 const GEMINI_CONFIG = {
     models: {
         pro: 'gemini-2.5-pro',
@@ -15,7 +16,7 @@ const GEMINI_CONFIG = {
         'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', cost: 'medium', description: 'Balanced performance and cost' },
         'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash Lite', cost: 'low', description: 'Fast and cost-effective' }
     },
-    fallbackOrder: ['pro', 'flash', 'flashLite'],
+    fallbackOrder: ['pro', 'flash', 'flashLite'], // Fallback from expensive to cheap models
     defaultModel: 'flashLite',
     apiSettings: {
         baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
@@ -27,9 +28,9 @@ const GEMINI_CONFIG = {
 class PhishGuardBackground {
     constructor() {
         this.geminiApiKey = null;
-        this.safeThreshold = 80;
-        this.cautionThreshold = 50;
-        this.scannedTabs = new Map();
+        this.safeThreshold = 80; // Score above which sites are considered safe
+        this.cautionThreshold = 50; // Score above which sites show caution warning
+        this.scannedTabs = new Map(); // Cache scan results per tab
         this.selectedModel = GEMINI_CONFIG.defaultModel;
         this.currentModel = null;
         this.init();
@@ -41,6 +42,7 @@ class PhishGuardBackground {
         this.setupContextMenu();
     }
 
+    // Load user settings from Chrome storage
     async loadSettings() {
         try {
             const result = await chrome.storage.sync.get([
@@ -59,6 +61,7 @@ class PhishGuardBackground {
         }
     }
 
+    // Set up message listeners for communication with popup and content scripts
     setupEventListeners() {
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             this.handleMessage(request, sender, sendResponse);
@@ -78,6 +81,7 @@ class PhishGuardBackground {
         });
     }
 
+    // Create context menu for manual page scanning
     setupContextMenu() {
         chrome.contextMenus.create({
             id: 'scan-page-phishing',
@@ -91,6 +95,7 @@ class PhishGuardBackground {
         });
     }
 
+    // Handle context menu scan requests
     async handleContextMenuClick(info, tab) {
         if (info.menuItemId === 'scan-page-phishing') {
             try {
@@ -122,6 +127,7 @@ class PhishGuardBackground {
         }
     }
 
+    // Route messages from popup and content scripts to appropriate handlers
     async handleMessage(request, sender, sendResponse) {
         try {
             switch (request.action) {
@@ -142,6 +148,7 @@ class PhishGuardBackground {
         }
     }
 
+    // Update settings when user changes them in popup
     handleStorageChange(changes, namespace) {
         if (namespace === 'sync') {
             if (changes.geminiApiKey) {
@@ -160,6 +167,7 @@ class PhishGuardBackground {
         }
     }
 
+    // Update badge when switching to a previously scanned tab
     handleTabActivated(activeInfo) {
         const tabId = activeInfo.tabId;
         
@@ -171,6 +179,7 @@ class PhishGuardBackground {
         }
     }
 
+    // Clear scan cache when tab URL changes
     handleTabUpdated(tabId, changeInfo, tab) {
         if (changeInfo.url) {
             this.scannedTabs.delete(tabId);
@@ -178,6 +187,7 @@ class PhishGuardBackground {
         }
     }
 
+    // Main scanning function - extracts page data and analyzes with Gemini AI
     async scanPage(tabId, url, scanSource = 'popup') {
         try {
             await this.loadSettings();
@@ -202,6 +212,7 @@ class PhishGuardBackground {
                 await this.saveToHistory(result);
             }
             
+            // Show appropriate warnings for context menu scans
             if (scanSource === 'contextMenu') {
                 const score = result.legitimacyScore;
                 
@@ -227,7 +238,7 @@ class PhishGuardBackground {
         }
     }
 
-
+    // Extract page content using content script injection
     async getPageContent(tabId) {
         try {
             await this.ensureContentScriptInjected(tabId);
@@ -254,7 +265,7 @@ class PhishGuardBackground {
         }
     }
 
-
+    // Ensure content script is loaded before extracting data
     async ensureContentScriptInjected(tabId) {
         try {
             // Check if content script is already injected by testing for a specific global variable
@@ -275,7 +286,7 @@ class PhishGuardBackground {
         }
     }
 
-
+    // Fallback extraction when primary method fails
     async fallbackPageExtraction(tabId) {
         try {
             // Execute minimal extraction function in page context
@@ -368,7 +379,7 @@ class PhishGuardBackground {
         }
     }
 
-
+    // Function injected into page context to extract comprehensive page data
     extractPageDataFunction() {
         try {
             const title = document.title || '';
@@ -423,7 +434,7 @@ class PhishGuardBackground {
         }
     }
 
-
+    // Send page data to Gemini AI for phishing analysis
     async analyzeWithGemini(pageData, scanSource = 'popup') {
         const prompt = this.buildAnalysisPrompt(pageData);
         
@@ -477,7 +488,7 @@ class PhishGuardBackground {
         }
     }
 
-
+    // Get next model in fallback hierarchy when current model fails
     getNextFallbackModel() {
         // Find current model in the fallback order
         const currentModelKey = Object.keys(GEMINI_CONFIG.models).find(
@@ -499,7 +510,7 @@ class PhishGuardBackground {
         return null;
     }
 
-
+    // Get human-readable model name for display
     getModelDisplayName(modelValue) {
         const displayNames = {
             'gemini-2.5-pro': 'Gemini 2.5 Pro',
@@ -510,7 +521,7 @@ class PhishGuardBackground {
         return displayNames[modelValue] || modelValue;
     }
 
-
+    // Notify user when falling back to different model
     async showFallbackNotification(currentModelName, nextModelName, scanSource = 'popup') {
         try {
             const message = `${currentModelName} failed. Switching to ${nextModelName}...`;
@@ -550,8 +561,9 @@ class PhishGuardBackground {
         }
     }
 
-buildAnalysisPrompt(pageData) {
-    return `You are an expert cybersecurity analyst specializing in phishing detection.
+    // Build prompt for Gemini AI analysis
+    buildAnalysisPrompt(pageData) {
+        return `You are an expert cybersecurity analyst specializing in phishing detection.
     Score how legitimate the webpage is (0-100) based on the data provided.
 
     Respond with ONLY this JSON:
@@ -585,8 +597,7 @@ buildAnalysisPrompt(pageData) {
     Analysis tips (internal, do not reveal): Weigh URL trust signals, domain age, HTTPS, forms, content-title consistency, and common phishing patterns. If data is incomplete, state uncertainty in reasoning.`;
     }
 
-
-
+    // Parse Gemini AI response and extract legitimacy score and reasoning
     parseGeminiResponse(responseText, url) {
         try {
             const cleanedResponse = responseText.replace(/```json|```/g, '').trim();
@@ -614,7 +625,7 @@ buildAnalysisPrompt(pageData) {
         }
     }
 
-
+    // Fallback analysis when JSON parsing fails
     fallbackAnalysis(url, responseText) {
         const lowerResponse = responseText.toLowerCase();
         let legitimacyScore = 50;
@@ -639,7 +650,7 @@ buildAnalysisPrompt(pageData) {
         };
     }
 
-
+    // Check if domain contains suspicious keywords
     isSuspiciousDomain(url) {
         try {
             const domain = new URL(url).hostname.toLowerCase();
@@ -654,7 +665,7 @@ buildAnalysisPrompt(pageData) {
         }
     }
 
-
+    // Check if URL can be scanned (exclude chrome://, file://, etc.)
     isScannableUrl(url) {
         if (!url || typeof url !== 'string') return false;
 
@@ -668,7 +679,7 @@ buildAnalysisPrompt(pageData) {
         return !unscannable.some(scheme => urlLower.startsWith(scheme));
     }
 
-
+    // Send messages to content script for UI updates
     async sendContentScriptMessage(tabId, action, result) {
         try {
             await chrome.tabs.sendMessage(tabId, {
@@ -680,8 +691,7 @@ buildAnalysisPrompt(pageData) {
         }
     }
 
-
-
+    // Update extension badge with scan result indicator
     updateBadge(tabId, result) {
         const score = result.legitimacyScore;
 
@@ -703,11 +713,13 @@ buildAnalysisPrompt(pageData) {
         chrome.action.setBadgeBackgroundColor({ tabId: tabId, color: badgeColor });
     }
 
+    // Clear extension badge when no scan result available
     clearBadge(tabId) {
         chrome.action.setBadgeText({ tabId: tabId, text: '' });
         chrome.action.setBadgeBackgroundColor({ tabId: tabId, color: '#00000000' });
     }
 
+    // Save scan result to history for popup display
     async saveToHistory(result) {
         try {
             const storage = await chrome.storage.sync.get(['scanHistory']);
@@ -732,7 +744,7 @@ buildAnalysisPrompt(pageData) {
             };
 
             scanHistory.unshift(historyItem);
-            scanHistory = scanHistory.slice(0, 10);
+            scanHistory = scanHistory.slice(0, 10); // Keep only last 10 scans
 
             await chrome.storage.sync.set({ scanHistory: scanHistory });
         } catch (error) {

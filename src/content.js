@@ -21,6 +21,7 @@ class PhishGuardContent {
         this.observePageChanges();
     }
 
+    // Route messages from background script to appropriate UI handlers
     handleMessage(request, sender, sendResponse) {
         switch (request.action) {
             case 'showPhishingWarning':
@@ -44,6 +45,7 @@ class PhishGuardContent {
         }
     }
 
+    // Create and display banner notifications on the webpage
     createBanner(id, className, innerHTML, autoHideDelay = 15000) {
         this.removeBanner();
 
@@ -63,6 +65,7 @@ class PhishGuardContent {
             banner.style.setProperty('z-index', '2147483647', 'important');
         }, 10);
 
+        // Auto-hide banner after specified delay unless user interacts
         if (autoHideDelay > 0) {
             setTimeout(() => {
                 if (banner.parentNode && !banner.classList.contains('user-interacted')) {
@@ -78,6 +81,7 @@ class PhishGuardContent {
         return banner;
     }
 
+    // Display high-risk phishing warning banner
     showPhishingWarning(result) {
         const innerHTML = `
             <div class="phishing-banner-content" dir="ltr" style="direction: ltr !important; text-align: left !important;">
@@ -115,6 +119,7 @@ class PhishGuardContent {
         this.createBanner('phishguard-warning', 'phishguard-banner warning', innerHTML, 15000);
     }
 
+    // Display suspicious website warning banner
     showSuspiciousWarning(result) {
         const innerHTML = `
             <div class="phishing-banner-content" dir="ltr" style="direction: ltr !important; text-align: left !important;">
@@ -152,6 +157,7 @@ class PhishGuardContent {
         this.createBanner('phishguard-suspicious', 'phishguard-banner suspicious', innerHTML, 10000);
     }
 
+    // Display safe website indicator banner
     showSafeIndicator(result) {
         const domain = window.location.hostname;
         const isSecure = window.location.protocol === 'https:';
@@ -190,6 +196,7 @@ class PhishGuardContent {
         });
     }
 
+    // Remove all existing banners from the page
     removeBanner() {
         if (this.currentBanner && this.currentBanner.parentNode) {
             this.currentBanner.remove();
@@ -203,6 +210,8 @@ class PhishGuardContent {
         if (existingSafe) existingSafe.remove();
         if (existingSuspicious) existingSuspicious.remove();
     }
+
+    // Extract comprehensive page data for analysis
     extractPageData() {
         try {
             const title = document.title || '';
@@ -272,7 +281,7 @@ class PhishGuardContent {
         }
     }
 
-
+    // Count external links pointing to different domains
     countExternalLinks() {
         return Array.from(document.querySelectorAll('a[href]'))
             .filter(a => {
@@ -285,7 +294,7 @@ class PhishGuardContent {
             }).length;
     }
 
-
+    // Detect if page contains login forms
     hasLoginForm() {
         const forms = document.querySelectorAll('form');
         for (const form of forms) {
@@ -300,7 +309,7 @@ class PhishGuardContent {
         return false;
     }
 
-
+    // Check for potential redirect mechanisms
     checkForRedirects() {
         const metaRefresh = document.querySelector('meta[http-equiv="refresh"]');
         const jsRedirects = document.body ? 
@@ -313,7 +322,7 @@ class PhishGuardContent {
         };
     }
 
-
+    // Analyze content for phishing indicators
     analyzeContentFlags(bodyText, title) {
         const text = (bodyText + ' ' + title).toLowerCase();
         
@@ -343,7 +352,7 @@ class PhishGuardContent {
         };
     }
 
-
+    // Detect common spelling errors in phishing sites
     detectSpellingErrors(text) {
         const commonMisspellings = [
             'amazom', 'gogle', 'microsooft', 'facbook',
@@ -353,7 +362,7 @@ class PhishGuardContent {
         return commonMisspellings.some(error => text.includes(error));
     }
 
-
+    // Monitor page changes and URL updates
     observePageChanges() {
         let lastUrl = location.href;
         
@@ -372,7 +381,7 @@ class PhishGuardContent {
         }).observe(document, { subtree: true, childList: true });
     }
 
-
+    // Display temporary notification messages
     showNotification(message, type = 'info') {
         const existingNotification = document.querySelector('.phishguard-notification');
         if (existingNotification) {

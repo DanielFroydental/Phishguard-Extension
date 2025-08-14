@@ -8,8 +8,8 @@ class PopupManager {
         this.isScanning = false;
         this.scanHistory = [];
         this.selectedModel = 'flashLite';
-        this.safeThreshold = 80;
-        this.cautionThreshold = 50;
+        this.safeThreshold = 80; // Score above which sites are considered safe
+        this.cautionThreshold = 50; // Score above which sites show caution warning
         this.init();
     }
 
@@ -21,6 +21,8 @@ class PopupManager {
         this.updateHistoryUI();
     }
 
+    // Listen for messages from background script
+    // Listen for messages from background script
     setupMessageListener() {
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (request.action === 'showPopupNotification') {
@@ -31,6 +33,8 @@ class PopupManager {
         });
     }
 
+    // Load user settings and scan history from Chrome storage
+    // Load user settings and scan history from Chrome storage
     async loadStoredData() {
         try {
             const result = await chrome.storage.sync.get([
@@ -50,6 +54,8 @@ class PopupManager {
         }
     }
 
+    // Set up event listeners for UI interactions
+    // Set up event listeners for UI interactions
     setupEventListeners() {
         document.getElementById('scan-button').addEventListener('click', () => this.scanCurrentPage());
         
@@ -67,7 +73,8 @@ class PopupManager {
         });
     }
 
-
+    // Save and validate API key
+    // Save and validate API key
     async saveApiKey() {
         const apiKeyInput = document.getElementById('api-key');
         const apiKey = apiKeyInput.value.trim();
@@ -100,7 +107,8 @@ class PopupManager {
         }
     }
 
-
+    // Update UI based on current state
+    // Update UI based on current state
     updateUI() {
         const scanButton = document.getElementById('scan-button');
         const statusText = document.getElementById('status-text');
@@ -119,7 +127,8 @@ class PopupManager {
         }
     }
 
-
+    // Initiate scan of current active tab
+    // Initiate scan of current active tab
     async scanCurrentPage() {
         if (this.isScanning) return; // Prevent multiple simultaneous scans
 
@@ -170,7 +179,7 @@ class PopupManager {
         }
     }
 
-
+    // Display scan results in the popup interface
     displayResults(result) {
         // Get UI elements for result display
         const resultsSection = document.getElementById('results-section');
@@ -272,7 +281,7 @@ class PopupManager {
         resultsSection.style.display = 'block';
     }
 
-
+    // Save scan result to history for future reference
     async saveToHistory(result) {
         const score = result.legitimacyScore;
         let verdict;
@@ -293,7 +302,7 @@ class PopupManager {
         };
 
         this.scanHistory.unshift(historyItem);
-        this.scanHistory = this.scanHistory.slice(0, 10);
+        this.scanHistory = this.scanHistory.slice(0, 10); // Keep only last 10 scans
 
         try {
             await chrome.storage.sync.set({ scanHistory: this.scanHistory });
@@ -303,7 +312,7 @@ class PopupManager {
         }
     }
 
-
+    // Update the scan history display in the popup
     updateHistoryUI() {
         const historyContainer = document.getElementById('scan-history');
         
@@ -332,6 +341,7 @@ class PopupManager {
         });
     }
     
+    // Reset logo to neutral state
     resetLogoBackground() {
         const logoIcon = document.getElementById('logo-icon');
         if (logoIcon) {
@@ -341,6 +351,7 @@ class PopupManager {
         this.resetToolbarIcon();
     }
 
+    // Reset extension toolbar badge
     resetToolbarIcon() {
         try {
             chrome.action.setBadgeText({ text: '' });
@@ -350,6 +361,8 @@ class PopupManager {
             console.error('Error resetting toolbar icon:', error);
         }
     }
+
+    // Show/hide loading state during scan
     showLoading(show) {
         const loadingSection = document.getElementById('loading-section');
         const scanButton = document.getElementById('scan-button');
@@ -365,7 +378,7 @@ class PopupManager {
         }
     }
 
-
+    // Update logo background color based on scan result
     updateLogoBackground(logoIcon, result) {
         logoIcon.classList.remove('logo-safe', 'logo-warning', 'logo-danger', 'logo-neutral');
         
@@ -380,7 +393,7 @@ class PopupManager {
         }
     }
 
-
+    // Display notification messages to user
     showNotification(message, type = 'info', duration = 3000) {
         const existingNotification = document.querySelector('.popup-notification');
         if (existingNotification) {
@@ -419,6 +432,7 @@ class PopupManager {
         }, duration);
     }
 
+    // Get appropriate icon for notification type
     getNotificationIcon(type) {
         const icons = {
             'info': 'ℹ',
@@ -429,7 +443,7 @@ class PopupManager {
         return icons[type] || icons['info'];
     }
 
-
+    // Validate API key format
     validateApiKey(apiKey) {
         if (!apiKey || apiKey.length < 30) {
             return { valid: false, error: 'API key too short' };
@@ -446,7 +460,7 @@ class PopupManager {
         return { valid: true };
     }
 
-
+    // Get human-readable model name for display
     getModelDisplayName(modelKey) {
         const displayNames = {
             'flashLite': 'Gemini 2.5 Flash Lite',
@@ -457,7 +471,7 @@ class PopupManager {
         return displayNames[modelKey] || modelKey;
     }
 
-
+    // Test specific Gemini model with API key
     async testSpecificModel(modelKey, apiKey) {
         const modelMap = {
             'flashLite': 'gemini-2.5-flash-lite',
@@ -499,7 +513,7 @@ class PopupManager {
         }
     }
 
-
+    // Test API key with all available models
     async testApiKey(apiKey) {
         const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'];
         
@@ -537,7 +551,7 @@ class PopupManager {
         };
     }
 
-
+    // Show settings modal with configuration options
     showSettings() {
         this.createModal('Settings', `
             <div class="settings-content">
@@ -812,6 +826,7 @@ class PopupManager {
         });
     }
 
+    // Update range display labels when thresholds change
     updateRangeDisplays(safeThreshold, cautionThreshold) {
         const safeRange = document.getElementById('safe-range');
         const cautionRange = document.getElementById('caution-range');
@@ -822,7 +837,7 @@ class PopupManager {
         if (dangerRange) dangerRange.textContent = `0-${cautionThreshold-1}%`;
     }
 
-
+    // Show help modal with usage instructions
     showHelp() {
         this.createModal('Help & Support', `
             <div class="help-content">
@@ -870,7 +885,7 @@ class PopupManager {
         `);
     }
 
-
+    // Show about modal with extension information
     showAbout() {
         this.createModal('About PhishGuard AI', `
             <div class="about-content">
@@ -892,7 +907,7 @@ class PopupManager {
                         <li>📊 Legitimacy scoring (0-100%)</li>
                         <li>⚡ Instant analysis results</li>
                         <li>🛡️ Context menu scanning</li>
-                        <li>� Detailed threat reasoning</li>
+                        <li>📋 Detailed threat reasoning</li>
                     </ul>
                 </div>
 
@@ -924,7 +939,6 @@ class PopupManager {
                     </ul>
                 </div>
 
-
                 <div class="legal">
                     <p class="copyright">© 2025 PhishGuard AI. All rights reserved.</p>
                     <p class="disclaimer">This tool is provided as-is. Always use your best judgment when browsing the web.</p>
@@ -933,7 +947,7 @@ class PopupManager {
         `);
     }
 
-
+    // Set up threshold slider event listeners
     setupThresholdSliders() {
         const safeSlider = document.getElementById('safe-threshold');
         const cautionSlider = document.getElementById('caution-threshold');
@@ -977,9 +991,7 @@ class PopupManager {
         });
     }
 
-
-
-
+    // Save threshold setting to storage
     async saveThreshold(thresholdType, value) {
         try {
             const storageData = {};
@@ -997,7 +1009,7 @@ class PopupManager {
         }
     }
 
-
+    // Reset thresholds to default values
     async resetThresholds() {
         try {
             const defaultSafe = 80;
@@ -1030,7 +1042,7 @@ class PopupManager {
         }
     }
 
-
+    // Create modal dialog for settings, help, and about
     createModal(title, content, onClose = null) {
         const existingModal = document.querySelector('.modal-overlay');
         if (existingModal) {
@@ -1067,7 +1079,7 @@ class PopupManager {
         });
     }
 
-
+    // Clear all scan history from storage
     async clearScanHistory() {
         try {
             const clearButton = document.getElementById('clear-history-btn');
