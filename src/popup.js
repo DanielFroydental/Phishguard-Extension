@@ -1,65 +1,61 @@
 /*
  * Popup Interface Manager - PhishGuard AI Extension
- * 
  * Manages the extension's popup interface for user interactions with the phishing detection system.
- * Handles manual scanning, API key configuration, scan history display, and settings management.
- * 
- * Key responsibilities:
- * - Provide intuitive interface for manual page scanning
- * - Manage API key validation and storage
- * - Display scan results with confidence levels and reasoning
- * - Maintain scan history and user preferences
- * - Handle modal dialogs for settings, help, and about information
- * - Coordinate with background service worker for scan operations
- */
-
-/**
- * Main popup interface manager class that handles all user interactions.
- * Manages UI state, API communications, and user settings for the extension popup.
  */
 class PopupManager {
-    /**
-     * Initialize the popup manager with default settings.
-     * Sets up instance variables for API key, scanning state, and user preferences.
-     */
     constructor() {
         this.apiKey = null;
         this.isScanning = false;
         this.scanHistory = [];
-        this.confidenceThreshold = 70;
+        this.selectedModel = 'flashLite';
+        this.safeThreshold = 80; // Score above which sites are considered safe
+        this.cautionThreshold = 50; // Score above which sites show caution warning
         this.init();
     }
 
-    /**
-     * Initialize the popup interface and load user data.
-     * Sets up event listeners, loads stored settings, and prepares the UI.
-     */
     async init() {
         await this.loadStoredData();
         this.setupEventListeners();
+        this.setupMessageListener();
         this.updateUI();
         this.updateHistoryUI();
     }
 
-    /**
-     * Load stored user data from Chrome storage.
-     * Retrieves API key, scan history, and confidence threshold settings.
-     */
+    // Listen for messages from background script
+    // Listen for messages from background script
+    setupMessageListener() {
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request.action === 'showPopupNotification') {
+                this.showNotification(request.message, request.type, 4000);
+                sendResponse({ success: true });
+            }
+            return true;
+        });
+    }
+
+    // Load user settings and scan history from Chrome storage
+    // Load user settings and scan history from Chrome storage
     async loadStoredData() {
         try {
-            const result = await chrome.storage.sync.get(['geminiApiKey', 'scanHistory', 'confidenceThreshold']);
+            const result = await chrome.storage.sync.get([
+                'geminiApiKey', 
+                'scanHistory', 
+                'safeThreshold', 
+                'cautionThreshold',
+                'selectedModel'
+            ]);
             this.apiKey = result.geminiApiKey || null;
-            this.confidenceThreshold = result.confidenceThreshold || 70;
             this.scanHistory = result.scanHistory || [];
+            this.safeThreshold = result.safeThreshold || 80;
+            this.cautionThreshold = result.cautionThreshold || 50;
+            this.selectedModel = result.selectedModel || 'flashLite';
         } catch (error) {
             console.error('Error loading stored data:', error);
         }
     }
 
-    /**
-     * Set up event listeners for popup interface elements.
-     * Attaches click handlers to buttons and navigation links.
-     */
+    // Set up event listeners for UI interactions
+    // Set up event listeners for UI interactions
     setupEventListeners() {
         document.getElementById('scan-button').addEventListener('click', () => this.scanCurrentPage());
         
@@ -77,10 +73,8 @@ class PopupManager {
         });
     }
 
-    /**
-     * Save and validate user's Gemini API key.
-     * Performs validation, testing, and secure storage of the API key.
-     */
+    // Save and validate API key
+    // Save and validate API key
     async saveApiKey() {
         const apiKeyInput = document.getElementById('api-key');
         const apiKey = apiKeyInput.value.trim();
@@ -113,10 +107,8 @@ class PopupManager {
         }
     }
 
-    /**
-     * Update popup UI based on current API key status.
-     * Enables/disables scan button and updates status indicators.
-     */
+    // Update UI based on current state
+    // Update UI based on current state
     updateUI() {
         const scanButton = document.getElementById('scan-button');
         const statusText = document.getElementById('status-text');
@@ -135,10 +127,8 @@ class PopupManager {
         }
     }
 
-    /**
-     * Initiate phishing scan of the current active tab.
-     * Coordinates with background script to analyze page content using AI.
-     */
+    // Initiate scan of current active tab
+    // Initiate scan of current active tab
     async scanCurrentPage() {
         if (this.isScanning) return; // Prevent multiple simultaneous scans
 
@@ -189,10 +179,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Display scan results in the popup interface.
-     * Updates UI with verdict, confidence level, reasoning, and visual indicators.
-     */
+    // Display scan results in the popup interface
     displayResults(result) {
         // Get UI elements for result display
         const resultsSection = document.getElementById('results-section');
@@ -202,44 +189,87 @@ class PopupManager {
         const analyzedUrl = document.getElementById('analyzed-url');
         const reasoningList = document.getElementById('reasoning-list');
         const warningIndicator = document.getElementById('warning-indicator');
+        const legitimateIndicator = document.getElementById('legitimate-indicator');
+        const phishingIndicator = document.getElementById('phishing-indicator');
         const logoIcon = document.getElementById('logo-icon');
 
-        // Determine result classification for styling
-        let resultClass = result.verdict.toLowerCase();
+        const score = result.legitimacyScore;
         
-        // Handle uncertain legitimate results (low confidence)
-        if (result.verdict.toLowerCase() === 'legitimate' && result.confidence < this.confidenceThreshold) {
+        // Determine result classification based on legitimacy score
+        let resultClass, displayVerdict;
+        if (score >= this.safeThreshold) { // 80-100: Safe/Legitimate
+            resultClass = 'legitimate';
+            displayVerdict = 'Legitimate';
+        } else if (score >= this.cautionThreshold) { // 50-79: Caution/Uncertain
             resultClass = 'uncertain';
+            displayVerdict = 'Uncertain';
+        } else { // 0-49: Danger/Phishing
+            resultClass = 'phishing';
+            displayVerdict = 'Phishing';
         }
 
         // Update UI elements with scan results
-        verdict.textContent = result.verdict;
+        verdict.textContent = displayVerdict;
         verdict.className = `verdict ${resultClass}`;
         resultCard.className = `result-card ${resultClass}`;
         
+        // Display the legitimacy score as percentage with clear label
         const confidenceElement = confidence;
-        confidenceElement.textContent = `${Math.round(result.confidence)}%`;
+        confidenceElement.innerHTML = `
+            <div class="confidence-wrapper">
+                <span class="confidence-label">Legitimacy</span>
+                <span class="confidence-value">${Math.round(score)}%</span>
+            </div>
+        `;
 
-        if (result.confidence >= this.confidenceThreshold) {
-          confidenceElement.style.color =
-            result.verdict.toLowerCase() === "legitimate" ? "#4CAF50" : "#f44336";
+        // Color code based on score ranges
+        if (score >= this.safeThreshold) {
+            confidenceElement.style.color = "#059669"; // Green for safe
+        } else if (score >= this.cautionThreshold) {
+            confidenceElement.style.color = "#d97706"; // Orange for caution
         } else {
-          confidenceElement.style.color = "#ff9800";
+            confidenceElement.style.color = "#dc2626"; // Red for danger
         }
         
-        this.updateLogoBackground(logoIcon, result);
+        this.updateLogoBackground(logoIcon, { legitimacyScore: score, verdict: displayVerdict });
         
-        if (result.verdict.toLowerCase() === 'phishing' && result.confidence >= 80) {
-            this.showNotification('High-confidence phishing detected! Check the banner on the webpage for details.', 'error', 3000);
+        // Show notification for high-risk phishing
+        if (score < this.cautionThreshold) {
+            this.showNotification('Phishing website detected! Check the banner on the webpage for details.', 'error', 3000);
         }
         
-        if (result.verdict.toLowerCase() === 'legitimate' && result.confidence < this.confidenceThreshold) {
-            warningIndicator.classList.remove('hidden');
-        } else {
+        // Show appropriate indicator based on score ranges
+        if (score >= this.safeThreshold) {
+            legitimateIndicator.classList.remove('hidden');
             warningIndicator.classList.add('hidden');
+            phishingIndicator.classList.add('hidden');
+        } else if (score >= this.cautionThreshold) {
+            warningIndicator.classList.remove('hidden');
+            legitimateIndicator.classList.add('hidden');
+            phishingIndicator.classList.add('hidden');
+        } else { // 0-49: Danger/Phishing
+            phishingIndicator.classList.remove('hidden');
+            warningIndicator.classList.add('hidden');
+            legitimateIndicator.classList.add('hidden');
         }
         
         analyzedUrl.textContent = result.url;
+        
+        // Add model information if available
+        const urlInfo = document.querySelector('.url-info');
+        let modelInfo = urlInfo.querySelector('.model-info');
+        if (!modelInfo) {
+            modelInfo = document.createElement('div');
+            modelInfo.className = 'model-info';
+            urlInfo.appendChild(modelInfo);
+        }
+        
+        if (result.modelDisplayName) {
+            modelInfo.innerHTML = `<strong>Analyzed by:</strong> <span class="model-name">${result.modelDisplayName}</span>`;
+            modelInfo.style.display = 'block';
+        } else {
+            modelInfo.style.display = 'none';
+        }
         
         reasoningList.innerHTML = '';
         result.reasoning.forEach(reason => {
@@ -251,21 +281,28 @@ class PopupManager {
         resultsSection.style.display = 'block';
     }
 
-    /**
-     * Save scan result to history.
-     * Stores the URL, domain, verdict, confidence, and timestamp in the scan history.
-     */
+    // Save scan result to history for future reference
     async saveToHistory(result) {
+        const score = result.legitimacyScore;
+        let verdict;
+        if (score >= this.safeThreshold) {
+            verdict = 'Legitimate';
+        } else if (score >= this.cautionThreshold) {
+            verdict = 'Uncertain';
+        } else {
+            verdict = 'Phishing';
+        }
+
         const historyItem = {
             url: result.url,
             domain: new URL(result.url).hostname,
-            verdict: result.verdict,
-            confidence: result.confidence,
+            verdict: verdict,
+            legitimacyScore: score,
             timestamp: Date.now()
         };
 
         this.scanHistory.unshift(historyItem);
-        this.scanHistory = this.scanHistory.slice(0, 10);
+        this.scanHistory = this.scanHistory.slice(0, 10); // Keep only last 10 scans
 
         try {
             await chrome.storage.sync.set({ scanHistory: this.scanHistory });
@@ -275,10 +312,7 @@ class PopupManager {
         }
     }
 
-    /**
-     * Update scan history display in the popup interface.
-     * Renders list of recent scans with domains and verdicts.
-     */
+    // Update the scan history display in the popup
     updateHistoryUI() {
         const historyContainer = document.getElementById('scan-history');
         
@@ -307,6 +341,7 @@ class PopupManager {
         });
     }
     
+    // Reset logo to neutral state
     resetLogoBackground() {
         const logoIcon = document.getElementById('logo-icon');
         if (logoIcon) {
@@ -316,6 +351,7 @@ class PopupManager {
         this.resetToolbarIcon();
     }
 
+    // Reset extension toolbar badge
     resetToolbarIcon() {
         try {
             chrome.action.setBadgeText({ text: '' });
@@ -325,11 +361,8 @@ class PopupManager {
             console.error('Error resetting toolbar icon:', error);
         }
     }
- 
-    /**
-     * Show loading indicator during scans.
-     * Displays a loading section and disables the scan button while processing.
-     */
+
+    // Show/hide loading state during scan
     showLoading(show) {
         const loadingSection = document.getElementById('loading-section');
         const scanButton = document.getElementById('scan-button');
@@ -345,32 +378,22 @@ class PopupManager {
         }
     }
 
-    /**
-     * Update logo background based on scan result.
-     * Applies appropriate CSS classes to indicate scan status visually.
-     */
+    // Update logo background color based on scan result
     updateLogoBackground(logoIcon, result) {
         logoIcon.classList.remove('logo-safe', 'logo-warning', 'logo-danger', 'logo-neutral');
         
-        const verdict = result.verdict.toLowerCase();
-        const confidence = result.confidence;
+        const score = result.legitimacyScore;
         
-        if (verdict === 'phishing') {
+        if (score >= this.safeThreshold) { // 80-100: Safe/Legitimate
+            logoIcon.classList.add('logo-safe');
+        } else if (score >= this.cautionThreshold) { // 50-79: Caution/Uncertain
+            logoIcon.classList.add('logo-warning');
+        } else { // 0-49: Danger/Phishing
             logoIcon.classList.add('logo-danger');
-        } else if (verdict === 'legitimate') {
-            if (confidence >= this.confidenceThreshold) {
-                logoIcon.classList.add('logo-safe');
-            } else {
-                logoIcon.classList.add('logo-warning');
-            }
-        } else {
-            logoIcon.classList.add('logo-neutral');
         }
     }
 
-    /**
-     * Display a notification message in the popup.
-     */
+    // Display notification messages to user
     showNotification(message, type = 'info', duration = 3000) {
         const existingNotification = document.querySelector('.popup-notification');
         if (existingNotification) {
@@ -409,6 +432,7 @@ class PopupManager {
         }, duration);
     }
 
+    // Get appropriate icon for notification type
     getNotificationIcon(type) {
         const icons = {
             'info': 'ℹ',
@@ -419,10 +443,7 @@ class PopupManager {
         return icons[type] || icons['info'];
     }
 
-    /**
-     * Validate Gemini API key format.
-     * Checks key length, prefix, and character validity.
-     */
+    // Validate API key format
     validateApiKey(apiKey) {
         if (!apiKey || apiKey.length < 30) {
             return { valid: false, error: 'API key too short' };
@@ -439,12 +460,62 @@ class PopupManager {
         return { valid: true };
     }
 
-    /**
-     * Test API key with Gemini service to verify it works.
-     * Attempts connection with multiple model types for compatibility.
-     */
+    // Get human-readable model name for display
+    getModelDisplayName(modelKey) {
+        const displayNames = {
+            'flashLite': 'Gemini 2.5 Flash Lite',
+            'flash': 'Gemini 2.5 Flash',
+            'pro': 'Gemini 2.5 Pro'
+        };
+        
+        return displayNames[modelKey] || modelKey;
+    }
+
+    // Test specific Gemini model with API key
+    async testSpecificModel(modelKey, apiKey) {
+        const modelMap = {
+            'flashLite': 'gemini-2.5-flash-lite',
+            'flash': 'gemini-2.5-flash', 
+            'pro': 'gemini-2.5-pro'
+        };
+        
+        const modelName = modelMap[modelKey];
+        if (!modelName) {
+            return { valid: false, error: 'Unknown model type' };
+        }
+        
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: 'test' }] }],
+                    generationConfig: { maxOutputTokens: 10 }
+                })
+            });
+
+            if (response.ok) {
+                return { valid: true };
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
+                
+                if (response.status === 403) {
+                    return { valid: false, error: 'API key does not have access to this model.' };
+                } else if (response.status === 404) {
+                    return { valid: false, error: 'Model not found or not available.' };
+                } else {
+                    return { valid: false, error: errorMessage };
+                }
+            }
+        } catch (error) {
+            return { valid: false, error: `Network error: ${error.message}` };
+        }
+    }
+
+    // Test API key with all available models
     async testApiKey(apiKey) {
-        const models = ['gemini-2.5-flash-lite', 'gemini-1.5-pro', 'gemini-pro'];
+        const models = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'];
         
         for (const model of models) {
             try {
@@ -480,10 +551,7 @@ class PopupManager {
         };
     }
 
-    /**
-     * Display settings modal for API configuration and preferences.
-     * Creates modal dialog with API key input, confidence threshold slider, and data management.
-     */
+    // Show settings modal with configuration options
     showSettings() {
         this.createModal('Settings', `
             <div class="settings-content">
@@ -497,16 +565,59 @@ class PopupManager {
                     <div id="api-status" class="api-status">${this.apiKey ? '<span class="status-success">✓ API key configured</span>' : '<span class="status-error">⚠ API key not configured</span>'}</div>
                     <p class="help-text">Get your API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></p>
                 </div>
-
-                <h4>Scanning Preferences</h4>
+                
                 <div class="setting-item">
-                    <label for="confidence-threshold">Minimum confidence threshold: <span id="threshold-value">${this.confidenceThreshold}%</span></label>
-                    <div class="slider-container">
-                        <span class="slider-label">50%</span>
-                        <input type="range" id="confidence-threshold" min="50" max="90" value="${this.confidenceThreshold}" class="confidence-slider">
-                        <span class="slider-label">90%</span>
+                    <label for="model-select">AI Model:</label>
+                    <select id="model-select">
+                        <option value="flashLite">Gemini 2.5 Flash Lite (Fast & Cost-effective)</option>
+                        <option value="flash">Gemini 2.5 Flash (Balanced Performance)</option>
+                        <option value="pro">Gemini 2.5 Pro (Highest Quality)</option>
+                    </select>
+                    <p class="help-text">Choose your preferred AI model. Higher quality models provide better analysis but cost more.</p>
+                </div>
+
+                <h4>Legitimacy Score Thresholds</h4>
+                <div class="setting-item">
+                    <div class="threshold-controls">
+                        <div class="threshold-setting">
+                            <label for="safe-threshold">Safe Threshold: <span id="safe-threshold-value">${this.safeThreshold}%</span></label>
+                            <div class="slider-container">
+                                <span class="slider-label">70%</span>
+                                <input type="range" id="safe-threshold" min="70" max="95" value="${this.safeThreshold}" class="threshold-slider safe">
+                                <span class="slider-label">95%</span>
+                            </div>
+                            <p class="help-text">Sites scoring above this threshold are considered safe/legitimate</p>
+                        </div>
+                        
+                        <div class="threshold-setting">
+                            <label for="caution-threshold">Caution Threshold: <span id="caution-threshold-value">${this.cautionThreshold}%</span></label>
+                            <div class="slider-container">
+                                <span class="slider-label">30%</span>
+                                <input type="range" id="caution-threshold" min="30" max="70" value="${this.cautionThreshold}" class="threshold-slider caution">
+                                <span class="slider-label">70%</span>
+                            </div>
+                            <p class="help-text">Sites scoring above this threshold show caution warning</p>
+                        </div>
                     </div>
-                    <p class="help-text">Lower values = more alerts for uncertain sites. Higher values = fewer alerts, only high-confidence threats.</p>
+                    
+                    <div class="current-ranges">
+                        <div class="range-display safe">
+                            <span class="range-label" id="safe-range">${this.safeThreshold}-100%</span>
+                            <span class="range-desc">Safe/Legitimate ✅</span>
+                        </div>
+                        <div class="range-display caution">
+                            <span class="range-label" id="caution-range">${this.cautionThreshold}-${this.safeThreshold-1}%</span>
+                            <span class="range-desc">Uncertain/Caution ⚠️</span>
+                        </div>
+                        <div class="range-display danger">
+                            <span class="range-label" id="danger-range">0-${this.cautionThreshold-1}%</span>
+                            <span class="range-desc">Danger/Phishing ❗️</span>
+                        </div>
+                    </div>
+                    
+                    <div class="threshold-actions">
+                        <button id="reset-thresholds-btn" class="secondary-button">Reset to Defaults</button>
+                    </div>
                 </div>
 
                 <h4>Data & Privacy</h4>
@@ -522,24 +633,100 @@ class PopupManager {
             this.clearScanHistory();
         });
 
-        const thresholdSlider = document.getElementById('confidence-threshold');
-        const thresholdValue = document.getElementById('threshold-value');
-        
-        thresholdSlider.addEventListener('input', (e) => {
-            const value = e.target.value;
-            thresholdValue.textContent = `${value}%`;
+        // Threshold slider event listeners
+        const safeThresholdSlider = document.getElementById('safe-threshold');
+        const cautionThresholdSlider = document.getElementById('caution-threshold');
+        const safeThresholdValue = document.getElementById('safe-threshold-value');
+        const cautionThresholdValue = document.getElementById('caution-threshold-value');
+
+        // Update display values as sliders move
+        safeThresholdSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            safeThresholdValue.textContent = `${value}%`;
+            this.updateRangeDisplays(value, this.cautionThreshold);
         });
 
-        thresholdSlider.addEventListener('change', async (e) => {
+        cautionThresholdSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            cautionThresholdValue.textContent = `${value}%`;
+            this.updateRangeDisplays(this.safeThreshold, value);
+        });
+
+        // Save threshold changes
+        safeThresholdSlider.addEventListener('change', async (e) => {
             const newThreshold = parseInt(e.target.value);
-            try {
-                await chrome.storage.sync.set({ confidenceThreshold: newThreshold });
-                this.confidenceThreshold = newThreshold;
-                this.showNotification(`Confidence threshold updated to ${newThreshold}%`, 'success');
-            } catch (error) {
-                console.error('Error saving confidence threshold:', error);
-                this.showNotification('Failed to save confidence threshold', 'error', 4000);
+            // Ensure safe threshold is always higher than caution threshold
+            if (newThreshold <= this.cautionThreshold) {
+                e.target.value = this.cautionThreshold + 10;
+                newThreshold = this.cautionThreshold + 10;
+                safeThresholdValue.textContent = `${newThreshold}%`;
+                this.showNotification('Safe threshold must be higher than caution threshold', 'warning', 3000);
             }
+            try {
+                await chrome.storage.sync.set({ safeThreshold: newThreshold });
+                this.safeThreshold = newThreshold;
+                this.updateRangeDisplays(newThreshold, this.cautionThreshold);
+                this.showNotification(`Safe threshold updated to ${newThreshold}%`, 'success');
+            } catch (error) {
+                console.error('Error saving safe threshold:', error);
+                this.showNotification('Failed to save safe threshold', 'error', 4000);
+            }
+        });
+
+        cautionThresholdSlider.addEventListener('change', async (e) => {
+            const newThreshold = parseInt(e.target.value);
+            // Ensure caution threshold is always lower than safe threshold
+            if (newThreshold >= this.safeThreshold) {
+                e.target.value = this.safeThreshold - 10;
+                newThreshold = this.safeThreshold - 10;
+                cautionThresholdValue.textContent = `${newThreshold}%`;
+                this.showNotification('Caution threshold must be lower than safe threshold', 'warning', 3000);
+            }
+            try {
+                await chrome.storage.sync.set({ cautionThreshold: newThreshold });
+                this.cautionThreshold = newThreshold;
+                this.updateRangeDisplays(this.safeThreshold, newThreshold);
+                this.showNotification(`Caution threshold updated to ${newThreshold}%`, 'success');
+            } catch (error) {
+                console.error('Error saving caution threshold:', error);
+                this.showNotification('Failed to save caution threshold', 'error', 4000);
+            }
+        });
+
+        // Reset thresholds button
+        document.getElementById('reset-thresholds-btn').addEventListener('click', async () => {
+            try {
+                const defaultSafe = 80;
+                const defaultCaution = 50;
+                await chrome.storage.sync.set({ 
+                    safeThreshold: defaultSafe, 
+                    cautionThreshold: defaultCaution 
+                });
+                this.safeThreshold = defaultSafe;
+                this.cautionThreshold = defaultCaution;
+                
+                // Update UI
+                safeThresholdSlider.value = defaultSafe;
+                cautionThresholdSlider.value = defaultCaution;
+                safeThresholdValue.textContent = `${defaultSafe}%`;
+                cautionThresholdValue.textContent = `${defaultCaution}%`;
+                this.updateRangeDisplays(defaultSafe, defaultCaution);
+                
+                this.showNotification('Thresholds reset to defaults', 'success');
+            } catch (error) {
+                console.error('Error resetting thresholds:', error);
+                this.showNotification('Failed to reset thresholds', 'error', 4000);
+            }
+        });
+
+        // Set current model selection
+        document.getElementById('model-select').value = this.selectedModel;
+
+        // Threshold slider event listeners
+        this.setupThresholdSliders();
+
+        document.getElementById('reset-thresholds-btn').addEventListener('click', () => {
+            this.resetThresholds();
         });
 
         document.getElementById('save-api-key-btn').addEventListener('click', async () => {
@@ -583,12 +770,74 @@ class PopupManager {
                 document.getElementById('save-api-key-btn').click();
             }
         });
+
+        // Model selection event listener with validation
+        document.getElementById('model-select').addEventListener('change', async (e) => {
+            const selectedModel = e.target.value;
+            const previousModel = this.selectedModel;
+            
+            // Don't test if selecting the same model
+            if (selectedModel === previousModel) {
+                return;
+            }
+            
+            try {
+                // First check if we have an API key
+                if (!this.apiKey) {
+                    this.showNotification('Please configure your API key first', 'error', 4000);
+                    e.target.value = previousModel; // Revert dropdown
+                    return;
+                }
+                
+                // Show testing notification
+                this.showNotification('Testing model access...', 'info', 2000);
+                
+                // Test the selected model
+                const testResult = await this.testSpecificModel(selectedModel, this.apiKey);
+                
+                if (testResult.valid) {
+                    // Model works, save the selection
+                    await chrome.storage.sync.set({ selectedModel: selectedModel });
+                    this.selectedModel = selectedModel;
+                    this.showNotification(`Successfully switched to ${this.getModelDisplayName(selectedModel)}!`, 'success');
+                } else {
+                    // Model failed, revert to flash-lite
+                    const fallbackModel = 'flashLite';
+                    e.target.value = fallbackModel; // Revert dropdown
+                    
+                    // Save fallback model
+                    await chrome.storage.sync.set({ selectedModel: fallbackModel });
+                    this.selectedModel = fallbackModel;
+                    
+                    // Show informative error
+                    this.showNotification(
+                        `Access denied to ${this.getModelDisplayName(selectedModel)}. Reverted to Flash Lite. ${testResult.error || 'Your API key may not have access to this model.'}`,
+                        'error',
+                        6000
+                    );
+                }
+            } catch (error) {
+                console.error('Error testing model selection:', error);
+                
+                // Revert to previous model on any error
+                e.target.value = previousModel;
+                this.showNotification('Failed to test model access. Selection reverted.', 'error', 4000);
+            }
+        });
     }
 
-    /**
-     * Display help modal with usage instructions and troubleshooting.
-     * Provides comprehensive guide for using the extension effectively.
-     */
+    // Update range display labels when thresholds change
+    updateRangeDisplays(safeThreshold, cautionThreshold) {
+        const safeRange = document.getElementById('safe-range');
+        const cautionRange = document.getElementById('caution-range');
+        const dangerRange = document.getElementById('danger-range');
+        
+        if (safeRange) safeRange.textContent = `${safeThreshold}-100%`;
+        if (cautionRange) cautionRange.textContent = `${cautionThreshold}-${safeThreshold-1}%`;
+        if (dangerRange) dangerRange.textContent = `0-${cautionThreshold-1}%`;
+    }
+
+    // Show help modal with usage instructions
     showHelp() {
         this.createModal('Help & Support', `
             <div class="help-content">
@@ -597,19 +846,20 @@ class PopupManager {
                     <li><strong>API Setup:</strong> Get your free API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a></li>
                     <li><strong>Manual Scan:</strong> Click "Analyze Page" to scan the current webpage</li>
                     <li><strong>Right-Click Scan:</strong> Right-click on any page and select "Scan page for phishing"</li>
-                    <li><strong>Adjust Threshold:</strong> Use the confidence slider in Settings to control sensitivity</li>
+                    <li><strong>Customize Thresholds:</strong> Adjust score thresholds in Settings to match your security preference</li>
+                    <li><strong>View Results:</strong> Check the legitimacy score and detailed reasoning</li>
                 </ol>
 
                 <h4>Understanding Results</h4>
                 <div class="result-explanation">
-                    <div class="verdict-example safe">✅ LEGITIMATE</div>
-                    <p>Website appears safe with high confidence</p>
+                    <div class="verdict-example safe">✅ LEGITIMATE (Safe threshold+)</div>
+                    <p>Website appears safe with high legitimacy score</p>
                     
-                    <div class="verdict-example suspicious">⚠️ SUSPICIOUS</div>
-                    <p>Website has some concerning elements - proceed with caution</p>
+                    <div class="verdict-example suspicious">⚠️ UNCERTAIN (Between thresholds)</div>
+                    <p>Website has mixed signals - proceed with caution</p>
                     
-                    <div class="verdict-example danger">🚨 PHISHING</div>
-                    <p>High likelihood of phishing - avoid entering personal information</p>
+                    <div class="verdict-example danger">❗️ PHISHING (Below caution threshold)</div>
+                    <p>High risk of phishing - avoid entering personal information</p>
                 </div>
 
                 <h4>Tips for Safe Browsing</h4>
@@ -618,7 +868,8 @@ class PopupManager {
                     <li>Look for HTTPS (secure) connections</li>
                     <li>Be cautious of urgent or threatening messages</li>
                     <li>When in doubt, navigate to the official website directly</li>
-                    <li>Adjust confidence threshold: Lower = more alerts, Higher = fewer alerts</li>
+                    <li>Pay attention to the legitimacy score and reasoning provided</li>
+                    <li>Adjust thresholds in Settings: Lower = more alerts, Higher = fewer alerts</li>
                 </ul>
 
                 <h4>Troubleshooting</h4>
@@ -628,15 +879,13 @@ class PopupManager {
                 <p><strong>Need a fresh start?</strong> Clear scan history in Settings</p>
 
                 <h4>Contact Support</h4>
-                <p>Found a bug or have suggestions? <a href="mailto:support@phishguard.ai">Contact us</a></p>
+                <p>Found a bug or have suggestions? Contact us at:</p>
+                <p><a href="mailto:froydent@post.bgu.ac.il">froydent@post.bgu.ac.il</a> or <a href="mailto:nogapo@bgu.ac.il">nogapo@bgu.ac.il</a></p>
             </div>
         `);
     }
 
-    /**
-     * Display about modal with extension information and credits.
-     * Shows version, features, privacy policy, and acknowledgments.
-     */
+    // Show about modal with extension information
     showAbout() {
         this.createModal('About PhishGuard AI', `
             <div class="about-content">
@@ -647,7 +896,7 @@ class PopupManager {
                 </div>
 
                 <div class="description">
-                    <p>PhishGuard AI is a Chrome extension that uses Google's Gemini AI to detect phishing websites in real-time, helping protect you from online scams and malicious websites.</p>
+                    <p>PhishGuard AI is a Chrome extension that uses Google's Gemini AI to detect phishing websites in real-time, providing a legitimacy score (0-100%) to help protect you from online scams and malicious websites.</p>
                 </div>
 
                 <div class="features">
@@ -655,9 +904,10 @@ class PopupManager {
                     <ul>
                         <li>🔍 Real-time phishing detection</li>
                         <li>🤖 Powered by Google Gemini AI</li>
+                        <li>📊 Legitimacy scoring (0-100%)</li>
                         <li>⚡ Instant analysis results</li>
                         <li>🛡️ Context menu scanning</li>
-                        <li>📊 Detailed threat analysis</li>
+                        <li>📋 Detailed threat reasoning</li>
                     </ul>
                 </div>
 
@@ -689,7 +939,6 @@ class PopupManager {
                     </ul>
                 </div>
 
-
                 <div class="legal">
                     <p class="copyright">© 2025 PhishGuard AI. All rights reserved.</p>
                     <p class="disclaimer">This tool is provided as-is. Always use your best judgment when browsing the web.</p>
@@ -698,10 +947,102 @@ class PopupManager {
         `);
     }
 
-    /**
-     * Create and display modal dialog with specified content.
-     * Handles modal lifecycle, event listeners, and cleanup.
-     */
+    // Set up threshold slider event listeners
+    setupThresholdSliders() {
+        const safeSlider = document.getElementById('safe-threshold');
+        const cautionSlider = document.getElementById('caution-threshold');
+        const safeValue = document.getElementById('safe-threshold-value');
+        const cautionValue = document.getElementById('caution-threshold-value');
+
+        // Update display values on input
+        safeSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            safeValue.textContent = `${value}%`;
+            this.updateRangeDisplays(value, this.cautionThreshold);
+        });
+
+        cautionSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            cautionValue.textContent = `${value}%`;
+            this.updateRangeDisplays(this.safeThreshold, value);
+        });
+
+        // Save changes on release
+        safeSlider.addEventListener('change', async (e) => {
+            const newValue = parseInt(e.target.value);
+            if (newValue <= this.cautionThreshold) {
+                this.showNotification('Safe threshold must be higher than caution threshold', 'error', 4000);
+                e.target.value = this.safeThreshold;
+                safeValue.textContent = `${this.safeThreshold}%`;
+                return;
+            }
+            await this.saveThreshold('safeThreshold', newValue);
+        });
+
+        cautionSlider.addEventListener('change', async (e) => {
+            const newValue = parseInt(e.target.value);
+            if (newValue >= this.safeThreshold) {
+                this.showNotification('Caution threshold must be lower than safe threshold', 'error', 4000);
+                e.target.value = this.cautionThreshold;
+                cautionValue.textContent = `${this.cautionThreshold}%`;
+                return;
+            }
+            await this.saveThreshold('cautionThreshold', newValue);
+        });
+    }
+
+    // Save threshold setting to storage
+    async saveThreshold(thresholdType, value) {
+        try {
+            const storageData = {};
+            storageData[thresholdType] = value;
+            await chrome.storage.sync.set(storageData);
+            
+            this[thresholdType] = value;
+            this.updateRangeDisplays(this.safeThreshold, this.cautionThreshold);
+            
+            const thresholdName = thresholdType === 'safeThreshold' ? 'Safe' : 'Caution';
+            this.showNotification(`${thresholdName} threshold updated to ${value}%`, 'success');
+        } catch (error) {
+            console.error('Error saving threshold:', error);
+            this.showNotification('Failed to save threshold', 'error', 4000);
+        }
+    }
+
+    // Reset thresholds to default values
+    async resetThresholds() {
+        try {
+            const defaultSafe = 80;
+            const defaultCaution = 50;
+            
+            await chrome.storage.sync.set({
+                safeThreshold: defaultSafe,
+                cautionThreshold: defaultCaution
+            });
+            
+            this.safeThreshold = defaultSafe;
+            this.cautionThreshold = defaultCaution;
+            
+            // Update UI elements
+            const safeSlider = document.getElementById('safe-threshold');
+            const cautionSlider = document.getElementById('caution-threshold');
+            const safeValue = document.getElementById('safe-threshold-value');
+            const cautionValue = document.getElementById('caution-threshold-value');
+            
+            if (safeSlider) safeSlider.value = defaultSafe;
+            if (cautionSlider) cautionSlider.value = defaultCaution;
+            if (safeValue) safeValue.textContent = `${defaultSafe}%`;
+            if (cautionValue) cautionValue.textContent = `${defaultCaution}%`;
+            
+            this.updateRangeDisplays(defaultSafe, defaultCaution);
+            this.showNotification('Thresholds reset to defaults', 'success');
+        } catch (error) {
+            console.error('Error resetting thresholds:', error);
+            this.showNotification('Failed to reset thresholds', 'error', 4000);
+        }
+    }
+
+    // Create modal dialog for settings, help, and about
     createModal(title, content, onClose = null) {
         const existingModal = document.querySelector('.modal-overlay');
         if (existingModal) {
@@ -738,10 +1079,7 @@ class PopupManager {
         });
     }
 
-    /**
-     * Clear scan history and update UI.
-     * Resets scan history in storage and refreshes the history display.
-     */
+    // Clear all scan history from storage
     async clearScanHistory() {
         try {
             const clearButton = document.getElementById('clear-history-btn');
